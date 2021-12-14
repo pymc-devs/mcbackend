@@ -7,15 +7,42 @@ from typing import Dict, Sequence, Tuple
 import numpy
 
 
-@dataclass
 class RunMeta:
     """Metadata of a multi-chain MCMC run."""
 
-    run_id: str
-    var_names: Sequence[str]
-    var_dtypes: Sequence[str]
-    var_shapes: Sequence[Tuple[int, ...]]
-    var_is_free: Sequence[bool]
+    def __init__(
+        self,
+        run_id: str,
+        var_names: Sequence[str],
+        var_dtypes: Sequence[str],
+        var_shapes: Sequence[Sequence[int]],
+        var_is_free: Sequence[bool],
+    ):
+        self._run_id = run_id
+        self._var_names = tuple(var_names)
+        self._var_dtypes = tuple(var_dtypes)
+        self._var_shapes = tuple(map(tuple, var_shapes))
+        self._var_is_free = tuple(map(bool, var_is_free))
+
+    @property
+    def run_id(self) -> str:
+        return self._run_id
+
+    @property
+    def var_names(self) -> Tuple[str]:
+        return self._var_names
+
+    @property
+    def var_dtypes(self) -> Tuple[str]:
+        return self._var_dtypes
+
+    @property
+    def var_shapes(self) -> Tuple[Tuple[int, ...]]:
+        return self._var_shapes
+
+    @property
+    def var_is_free(self) -> Tuple[bool]:
+        return self._var_is_free
 
 
 @dataclass
@@ -54,7 +81,7 @@ class BackendBase:
         raise NotImplementedError()
 
     def get_draw(
-        self, chain_id: str, draw_idx: int, var_names: Sequence[str] = None
+        self, chain_id: str, draw_idx: int, var_names: Sequence[str]
     ) -> Dict[str, numpy.ndarray]:
         """Retrieve one draw from an MCMC chain."""
         raise NotImplementedError()

@@ -1,3 +1,4 @@
 clickhouse-driver
 hagelkorn
 numpy
+pandas
