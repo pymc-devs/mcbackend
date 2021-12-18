@@ -1,5 +1,6 @@
 clickhouse-driver
 flake8
+pymc==4.0.0b1
 pytest
 pytest-cov
 twine
