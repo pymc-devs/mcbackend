@@ -1,3 +1,4 @@
+clickhouse-driver
 flake8
 pytest
 pytest-cov
