@@ -1,6 +1,7 @@
 """
 This module implements a backend for sample storage in ClickHouse.
 """
+import datetime
 import inspect
 from typing import Dict, Sequence
 
@@ -34,6 +35,7 @@ class ClickHouseBackend(BackendBase):
     def init_backend(self):
         query = """
             CREATE TABLE IF NOT EXISTS runs (
+                created_at DateTime64(9, "UTC"),
                 run_id String,
                 var_names Array(String),
                 var_dtypes Array(String),
@@ -42,7 +44,7 @@ class ClickHouseBackend(BackendBase):
             )
             ENGINE MergeTree()
             PRIMARY KEY (run_id)
-            PARTITION BY (run_id)
+            PARTITION BY (created_at)
             ORDER BY (run_id);
         """
         return self.client.execute(query)
@@ -53,8 +55,9 @@ class ClickHouseBackend(BackendBase):
             # See https://github.com/michaelosthege/mcbackend/issues/6
             return
 
-        query = "INSERT INTO runs (run_id, var_names, var_dtypes, var_shapes, var_is_free) VALUES"
+        query = "INSERT INTO runs (created_at, run_id, var_names, var_dtypes, var_shapes, var_is_free) VALUES"
         params = dict(
+            created_at=run_meta.created_at,
             run_id=run_meta.run_id,
             var_names=run_meta.var_names,
             var_dtypes=run_meta.var_dtypes,
@@ -133,7 +136,8 @@ class ClickHouseBackend(BackendBase):
         return numpy.array([vals for vals, in data])
 
     def get_runs(self) -> pandas.DataFrame:
-        df = self.client.query_dataframe("SELECT * FROM runs;")
+        df = self.client.query_dataframe("SELECT * FROM runs ORDER BY created_at;")
+        df["created_at"] = [ca.replace(tzinfo=datetime.timezone.utc) for ca in df["created_at"]]
         df["var_is_free"] = [list(map(bool, vif)) for vif in df["var_is_free"]]
         return df.set_index("run_id")
 
@@ -146,5 +150,7 @@ class ClickHouseBackend(BackendBase):
         )
         if len(rows) != 1:
             raise Exception(f"Unexpected number of {len(rows)} results for run_id='{run_id}'.")
-        meta = RunMeta(**dict(zip(keys, rows[0])))
+        kwargs = dict(zip(keys, rows[0]))
+        kwargs["created_at"] = kwargs["created_at"].replace(tzinfo=datetime.timezone.utc)
+        meta = RunMeta(**kwargs)
         return meta

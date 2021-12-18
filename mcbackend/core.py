@@ -1,6 +1,7 @@
 """
 Module with metadata structures and abstract classes.
 """
+import datetime
 from dataclasses import dataclass
 from typing import Dict, Sequence, Tuple
 
@@ -17,12 +18,19 @@ class RunMeta:
         var_dtypes: Sequence[str],
         var_shapes: Sequence[Sequence[int]],
         var_is_free: Sequence[bool],
+        *,
+        created_at: datetime = None,
     ):
+        self._created_at = created_at or datetime.datetime.now().astimezone(datetime.timezone.utc)
         self._run_id = run_id
         self._var_names = tuple(var_names)
         self._var_dtypes = tuple(var_dtypes)
         self._var_shapes = tuple(map(tuple, var_shapes))
         self._var_is_free = tuple(map(bool, var_is_free))
+
+    @property
+    def created_at(self) -> datetime.datetime:
+        return self._created_at
 
     @property
     def run_id(self) -> str:
