@@ -1,2 +1,9 @@
 [MESSAGES CONTROL]
-disable=C0103,R1711,R0902
+disable =
+    E0401, # unable to import becaue pylint runs in a minimal env
+    C0301, # line too long is managed by black
+    C0103, # variable, method and class naming style enforcement
+    C0116, # some methods are just too simple to deserve a docstring
+    R0913, # too many arguments
+    R1711, # useless return is okay
+    R0902, # too many instance attributes

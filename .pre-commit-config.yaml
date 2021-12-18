@@ -23,3 +23,10 @@ repos:
   rev: 21.11b1
   hooks:
     - id: black
+- repo: https://github.com/PyCQA/pylint
+  rev: v2.12.2
+  hooks:
+    - id: pylint
+      args: [--rcfile=.pylintrc]
+      exclude: test_*
+      files: ^mcbackend/
