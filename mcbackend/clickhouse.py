@@ -59,7 +59,7 @@ class ClickHouseBackend(BackendBase):
             var_names=run_meta.var_names,
             var_dtypes=run_meta.var_dtypes,
             var_shapes=run_meta.var_shapes,
-            var_is_free=numpy.uint8(run_meta.var_is_free),
+            var_is_free=list(map(int, run_meta.var_is_free)),
         )
         self.client.execute(query, [params])
         return
@@ -134,7 +134,7 @@ class ClickHouseBackend(BackendBase):
 
     def get_runs(self) -> pandas.DataFrame:
         df = self.client.query_dataframe("SELECT * FROM runs;")
-        df["var_is_free"] = df["var_is_free"].astype(bool)
+        df["var_is_free"] = [list(map(bool, vif)) for vif in df["var_is_free"]]
         return df.set_index("run_id")
 
     def get_run(self, run_id: str) -> RunMeta:

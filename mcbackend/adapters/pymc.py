@@ -33,7 +33,7 @@ class TraceBackend(pm.backends.base.BaseTrace):
         self.chain: int = None
         self._draw_idx: int = 0
         self._chain_id = None
-        _log.info("Backend run id: %s", self.run_id)
+        print("Backend run id: %s", self.run_id)
 
     def __len__(self) -> int:
         return self._draw_idx
@@ -43,12 +43,13 @@ class TraceBackend(pm.backends.base.BaseTrace):
         super().setup(draws, chain, sampler_vars)
 
         # Determine relevant meta information
+        free_rv_names = [rv.name for rv in self.model.free_RVs]
         rm = RunMeta(
             self.run_id,
             self.varnames,
             tuple(map(str, self.var_dtypes.values())),
             tuple(self.var_shapes.values()),
-            [(rv in self.model.free_RVs) for rv in self.vars],
+            [(vn in free_rv_names) for vn in self.varnames],
         )
         cm = ChainMeta(self.run_id, self.chain)
 
