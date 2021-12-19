@@ -1,14 +1,10 @@
 """
 This module implements an adapter to
 """
-import logging
-
 import hagelkorn
 import pymc as pm
 
-from ..core import BackendBase, ChainMeta, RunMeta
-
-_log = logging.getLogger(__file__)
+from ..core import Backend, Chain, Run, RunMeta
 
 
 class TraceBackend(pm.backends.base.BaseTrace):
@@ -18,7 +14,7 @@ class TraceBackend(pm.backends.base.BaseTrace):
 
     def __init__(  # pylint: disable=W0622
         self,
-        backend: BackendBase,
+        backend: Backend,
         *,
         name: str = None,
         model: pm.Model = None,
@@ -27,13 +23,17 @@ class TraceBackend(pm.backends.base.BaseTrace):
     ):
         super().__init__(name, model, vars, test_point)
         self.run_id = hagelkorn.random(digits=6)
+        print(f"Backend run id: {self.run_id}")
         self._backend = backend
         self._stats = None
-        # The following are specific to chains
+
+        # Sessions created from the underlying backend
+        self._run: Run = None
+        self._chain: Chain = None
+
+        # These are needed py the PyMC BaseTrace
         self.chain: int = None
         self._draw_idx: int = 0
-        self._chain_id = None
-        print("Backend run id: %s", self.run_id)
 
     def __len__(self) -> int:
         return self._draw_idx
@@ -42,35 +42,32 @@ class TraceBackend(pm.backends.base.BaseTrace):
         self.chain = chain
         super().setup(draws, chain, sampler_vars)
 
-        # Determine relevant meta information
+        # Initialize backend sessions
         free_rv_names = [rv.name for rv in self.model.free_RVs]
-        rm = RunMeta(
-            self.run_id,
-            self.varnames,
-            tuple(map(str, self.var_dtypes.values())),
-            tuple(self.var_shapes.values()),
-            [(vn in free_rv_names) for vn in self.varnames],
-        )
-        cm = ChainMeta(self.run_id, self.chain)
-
-        # Initialize backend
-        self._backend.init_backend()
-        self._backend.init_run(rm)
-        self._backend.init_chain(cm)
-        self._chain_id = cm.chain_id
+        if not self._run:
+            self._run = self._backend.init_run(
+                RunMeta(
+                    self.run_id,
+                    self.varnames,
+                    tuple(map(str, self.var_dtypes.values())),
+                    tuple(self.var_shapes.values()),
+                    [(vn in free_rv_names) for vn in self.varnames],
+                )
+            )
+        self._chain = self._run.init_chain(chain_number=chain)
         return
 
     def record(self, point, sampler_stats=None) -> None:  # pylint: disable=W0613
         draw = dict(zip(self.varnames, self.fn(point)))
-        self._backend.add_draw(self._chain_id, self._draw_idx, draw)
+        self._chain.add_draw(self._draw_idx, draw)
         self._draw_idx += 1
         return
 
     def get_values(self, varname, burn=0, thin=1):
-        return self._backend.get_variable(self._chain_id, varname)[burn::thin]
+        return self._chain.get_variable(varname)[burn::thin]
 
     def point(self, idx: int):
-        return self._backend.get_draw(self._chain_id, idx, self.var_names)
+        return self._chain.get_draw(idx, self.var_names)
 
     def _slice(self, idx) -> pm.backends.base.BaseTrace:
         idx = slice(*idx.indices(len(self)))

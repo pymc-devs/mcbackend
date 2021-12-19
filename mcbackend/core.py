@@ -66,34 +66,39 @@ class ChainMeta:
         return f"{self.run_id}_chain_{self.chain_number}"
 
 
-class BackendBase:
-    """Base class for all MCMC draw storage backends."""
+class Chain:
+    """A handle on one Markov-chain."""
 
-    def init_backend(self):
-        """
-        Initialization of the sampling backend.
-        For example the creation of database tables.
-        """
+    def __init__(self, meta: ChainMeta) -> None:
+        self.meta = meta
+        super().__init__()
+
+    def add_draw(self, draw_idx: int, draw: Dict[str, numpy.ndarray]):
         raise NotImplementedError()
 
-    def init_run(self, run_meta: RunMeta):
-        """Register a new MCMC run with the backend."""
+    def get_variable(self, var_name: str) -> Dict[str, numpy.ndarray]:
+        """Retrieve all draws of a variable from an MCMC chain."""
         raise NotImplementedError()
 
-    def init_chain(self, chain_meta: ChainMeta):
-        """Register a new MCMC chain with the backend."""
-        raise NotImplementedError()
-
-    def add_draw(self, chain_id: str, draw_idx: int, draw: Dict[str, numpy.ndarray]):
-        """Add a draw to an MCMC chain."""
-        raise NotImplementedError()
-
-    def get_draw(
-        self, chain_id: str, draw_idx: int, var_names: Sequence[str]
-    ) -> Dict[str, numpy.ndarray]:
+    def get_draw(self, draw_idx: int, var_names: Sequence[str]) -> Dict[str, numpy.ndarray]:
         """Retrieve one draw from an MCMC chain."""
         raise NotImplementedError()
 
-    def get_variable(self, chain_id: str, var_name: str) -> Dict[str, numpy.ndarray]:
-        """Retrieve all draws of a variable from an MCMC chain."""
+
+class Run:
+    """A handle on one MCMC run."""
+
+    def __init__(self, meta: RunMeta) -> None:
+        self.meta = meta
+        super().__init__()
+
+    def init_chain(self, chain_number: int) -> Chain:
+        raise NotImplementedError()
+
+
+class Backend:
+    """Base class for all MCMC draw storage backends."""
+
+    def init_run(self, meta: RunMeta) -> Run:
+        """Register a new MCMC run with the backend."""
         raise NotImplementedError()

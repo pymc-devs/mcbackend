@@ -1,14 +1,13 @@
-from typing import Tuple
+from typing import Sequence, Tuple
 
 import clickhouse_driver
 import hagelkorn
 import numpy
 import pandas
 import pytest
-from pandas.core.indexing import check_bool_indexer
 
-from .clickhouse import ClickHouseBackend
-from .core import ChainMeta, RunMeta
+from .clickhouse import ClickHouseBackend, create_chain_table, create_runs_table
+from .core import Chain, ChainMeta, Run, RunMeta
 
 try:
     client = clickhouse_driver.Client("localhost")
@@ -39,7 +38,6 @@ def cclient():
 def cbackend(cclient: clickhouse_driver.Client):
     """Gives a ClickHouse Client connected to a temporary database."""
     backend = ClickHouseBackend(cclient)
-    backend.init_backend()
     yield backend
     # No teardown needed.
     return
@@ -59,14 +57,13 @@ def make_runmeta(**kwargs):
 
 def fully_initialized(
     cbackend: ClickHouseBackend, rmeta: RunMeta, *, nchains: int = 1
-) -> Tuple[RunMeta, ChainMeta]:
-    cbackend.init_run(rmeta)
-    cmetas = []
+) -> Tuple[Run, Sequence[Chain]]:
+    run = cbackend.init_run(rmeta)
+    chains = []
     for c in range(nchains):
-        cmeta = ChainMeta(rmeta.run_id, c)
-        cbackend.init_chain(cmeta)
-        cmetas.append(cmeta)
-    return rmeta, cmetas
+        chain = run.init_chain(c)
+        chains.append(chain)
+    return run, chains
 
 
 @pytest.mark.skipif(
@@ -78,9 +75,8 @@ class TestClickHouseBackend:
         assert cclient.execute("SHOW TABLES;") == []
         pass
 
-    def test_init_backend(self, cclient: clickhouse_driver.Client):
-        backend = ClickHouseBackend(cclient)
-        backend.init_backend()
+    def test_create_runs_table(self, cclient: clickhouse_driver.Client):
+        create_runs_table(cclient)
         tables = cclient.execute("SHOW TABLES;")
         assert set(tables) == {
             ("runs",),
@@ -89,8 +85,9 @@ class TestClickHouseBackend:
 
     def test_init_run(self, cbackend: ClickHouseBackend):
         meta = make_runmeta(run_id="my_first_run")
-        cbackend.init_run(meta)
-        assert len(cbackend.client.execute("SELECT * FROM runs;")) == 1
+        run = cbackend.init_run(meta)
+        assert isinstance(run, Run)
+        assert len(cbackend._client.execute("SELECT * FROM runs;")) == 1
         runs = cbackend.get_runs()
         assert isinstance(runs, pandas.DataFrame)
         assert runs.index.name == "run_id"
@@ -100,11 +97,11 @@ class TestClickHouseBackend:
     def test_get_run(self, cbackend: ClickHouseBackend):
         meta = make_runmeta()
         cbackend.init_run(meta)
-        actual = cbackend.get_run(meta.run_id)
-        assert actual.__dict__ == meta.__dict__
+        run = cbackend.get_run(meta.run_id)
+        assert run.meta.__dict__ == meta.__dict__
         pass
 
-    def test_init_chain(self, cbackend: ClickHouseBackend):
+    def test_create_chain_table(self, cbackend: ClickHouseBackend):
         rmeta = make_runmeta(
             var_names=["scalar", "1D", "3D"],
             var_shapes=[(), (3,), (2, 5, 6)],
@@ -112,8 +109,8 @@ class TestClickHouseBackend:
         )
         cbackend.init_run(rmeta)
         cmeta = ChainMeta(rmeta.run_id, 1)
-        cbackend.init_chain(cmeta)
-        rows, names_and_types = cbackend.client.execute(
+        create_chain_table(cbackend._client, cmeta)
+        rows, names_and_types = cbackend._client.execute(
             f"SELECT * FROM {cmeta.chain_id};", with_column_types=True
         )
         assert len(rows) == 0
@@ -126,7 +123,7 @@ class TestClickHouseBackend:
         pass
 
     def test_insert_draw(self, cbackend: ClickHouseBackend):
-        rm, cms = fully_initialized(
+        run, chains = fully_initialized(
             cbackend,
             make_runmeta(
                 var_names=["v1", "v2", "v3"],
@@ -139,9 +136,9 @@ class TestClickHouseBackend:
             "v2": numpy.array([0.5, -2, 1.4], dtype="float32"),
             "v3": numpy.random.uniform(size=(2, 5, 6)).astype("float64"),
         }
-        cm = cms[0]
-        cbackend.add_draw(cm.chain_id, 0, draw)
-        rows = cbackend.client.execute(f"SELECT _draw_idx,v1,v2,v3 FROM {cm.chain_id};")
+        chain = chains[0]
+        chain.add_draw(0, draw)
+        rows = cbackend._client.execute(f"SELECT _draw_idx,v1,v2,v3 FROM {chain.meta.chain_id};")
         assert len(rows) == 1
         idx, v1, v2, v3 = rows[0]
         assert idx == 0
@@ -151,7 +148,7 @@ class TestClickHouseBackend:
         pass
 
     def test_get_draw(self, cbackend: ClickHouseBackend):
-        rm, cms = fully_initialized(
+        run, chains = fully_initialized(
             cbackend,
             make_runmeta(
                 var_names=["v1", "v2", "v3"],
@@ -164,10 +161,10 @@ class TestClickHouseBackend:
             "v2": numpy.array([0.5, -2, 1.4], dtype="float32"),
             "v3": numpy.random.uniform(size=(2, 5, 6)).astype("float64"),
         }
-        cm = cms[0]
-        cbackend.add_draw(cm.chain_id, 0, draw)
-        actual = cbackend.get_draw(cm.chain_id, 0, rm.var_names)
+        chain = chains[0]
+        chain.add_draw(0, draw)
+        actual = chain.get_draw(0, run.meta.var_names)
         assert set(actual) == set(draw)
-        for k in rm.var_names:
+        for k in run.meta.var_names:
             numpy.testing.assert_array_equal(actual[k], draw[k])
         pass

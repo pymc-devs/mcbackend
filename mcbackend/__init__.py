@@ -1,7 +1,7 @@
 """
 A framework agnostic implementation for storage of MCMC draws.
 """
-from .core import BackendBase, ChainMeta, RunMeta
+from .core import Backend, Chain, ChainMeta, Run, RunMeta
 
 # Backends
 try:
