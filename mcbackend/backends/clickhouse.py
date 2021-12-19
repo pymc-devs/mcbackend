@@ -10,7 +10,7 @@ import clickhouse_driver
 import numpy
 import pandas
 
-from .core import Backend, Chain, ChainMeta, Run, RunMeta
+from ..core import Backend, Chain, ChainMeta, Run, RunMeta
 
 _log = logging.getLogger(__file__)
 

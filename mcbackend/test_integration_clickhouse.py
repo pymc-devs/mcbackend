@@ -6,7 +6,11 @@ import numpy
 import pandas
 import pytest
 
-from .clickhouse import ClickHouseBackend, create_chain_table, create_runs_table
+from .backends.clickhouse import (
+    ClickHouseBackend,
+    create_chain_table,
+    create_runs_table,
+)
 from .core import Chain, ChainMeta, Run, RunMeta
 
 try:

@@ -3,7 +3,7 @@ import pymc as pm
 import pytest
 
 from .adapters.pymc import TraceBackend
-from .clickhouse import ClickHouseBackend
+from .backends.clickhouse import ClickHouseBackend
 
 
 @pytest.fixture

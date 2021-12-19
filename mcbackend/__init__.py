@@ -5,13 +5,13 @@ from .core import Backend, Chain, ChainMeta, Run, RunMeta
 
 # Backends
 try:
-    from .clickhouse import ClickHouseBackend
+    from backends import clickhouse
 except ModuleNotFoundError:
     pass
 
 # Adapters
 try:
-    from .adapters.pymc import TraceBackend
+    from adapters import pymc
 except ModuleNotFoundError:
     pass
 
