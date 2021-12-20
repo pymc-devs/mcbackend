@@ -4,6 +4,7 @@ This module implements a backend for sample storage in ClickHouse.
 import datetime
 import inspect
 import logging
+import time
 from typing import Dict, Sequence
 
 import clickhouse_driver
@@ -84,8 +85,16 @@ def create_chain_table(client: clickhouse_driver.Client, meta: ChainMeta):
 class ClickHouseChain(Chain):
     """Represents an MCMC chain stored in ClickHouse."""
 
-    def __init__(self, meta: ChainMeta, *, client: clickhouse_driver.Client):
+    def __init__(
+        self, meta: ChainMeta, *, client: clickhouse_driver.Client, insert_interval: int = 1
+    ):
         self._client = client
+        # The following attributes belong to the batched insert mechanism.
+        # Inserting in batches is much faster than inserting single rows.
+        self._insert_query = None
+        self._insert_queue = []
+        self._last_insert = time.time()
+        self._insert_interval = insert_interval
         super().__init__(meta)
 
     def add_draw(
@@ -93,17 +102,36 @@ class ClickHouseChain(Chain):
         draw_idx: int,
         draw: Dict[str, numpy.ndarray],
     ):
-        chain_id = self.meta.chain_id
         params = {"_draw_idx": draw_idx, **draw}
-        names = ", ".join(params.keys())
-        query = f"INSERT INTO {chain_id} ({names}) VALUES"
-        self._client.execute(query, [params])
+        if not self._insert_query:
+            chain_id = self.meta.chain_id
+            names = ", ".join(params.keys())
+            self._insert_query = f"INSERT INTO {chain_id} ({names}) VALUES"
+        self._insert_queue.append(params)
+
+        if time.time() - self._last_insert > self._insert_interval:
+            self._commit()
+        return
+
+    def _commit(self):
+        if not self._insert_queue:
+            return
+        params = self._insert_queue
+        self._insert_queue = []
+        self._last_insert = time.time()
+        self._client.execute(self._insert_query, params)
+        return
+
+    def __del__(self):
+        self._commit()
+        return
 
     def get_draw(
         self,
         draw_idx: int,
         var_names: Sequence[str],
     ) -> Dict[str, numpy.ndarray]:
+        self._commit()
         chain_id = self.meta.chain_id
         names = ",".join(var_names)
         data = self._client.execute(f"SELECT ({names}) FROM {chain_id} WHERE _draw_idx={draw_idx};")
@@ -118,6 +146,7 @@ class ClickHouseChain(Chain):
         *,
         burn: int = 0,
     ) -> Dict[str, numpy.ndarray]:
+        self._commit()
         chain_id = self.meta.chain_id
         data = self._client.execute(
             f"SELECT (`{var_name}`) FROM {chain_id} WHERE _draw_idx>={burn};"

@@ -8,6 +8,8 @@ import pytest
 
 from .backends.clickhouse import (
     ClickHouseBackend,
+    ClickHouseChain,
+    ClickHouseRun,
     create_chain_table,
     create_runs_table,
 )
@@ -61,7 +63,7 @@ def make_runmeta(**kwargs):
 
 def fully_initialized(
     cbackend: ClickHouseBackend, rmeta: RunMeta, *, nchains: int = 1
-) -> Tuple[Run, Sequence[Chain]]:
+) -> Tuple[ClickHouseRun, Sequence[ClickHouseChain]]:
     run = cbackend.init_run(rmeta)
     chains = []
     for c in range(nchains):
@@ -142,6 +144,9 @@ class TestClickHouseBackend:
         }
         chain = chains[0]
         chain.add_draw(0, draw)
+        assert len(chain._insert_queue) == 1
+        chain._commit()
+        assert len(chain._insert_queue) == 0
         rows = cbackend._client.execute(f"SELECT _draw_idx,v1,v2,v3 FROM {chain.meta.chain_id};")
         assert len(rows) == 1
         idx, v1, v2, v3 = rows[0]
