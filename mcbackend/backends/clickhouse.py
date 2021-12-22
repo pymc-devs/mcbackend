@@ -89,12 +89,14 @@ class ClickHouseChain(Chain):
         self,
         meta: ChainMeta,
         *,
+        rmeta: RunMeta,
         client: clickhouse_driver.Client,
         insert_interval: int = 1,
         draw_idx: int = 0,
     ):
         self._draw_idx = draw_idx
         self._client = client
+        self._rmeta = rmeta
         # The following attributes belong to the batched insert mechanism.
         # Inserting in batches is much faster than inserting single rows.
         self._insert_query = None
@@ -150,14 +152,30 @@ class ClickHouseChain(Chain):
         burn: int = 0,
     ) -> numpy.ndarray:
         self._commit()
+        # What do we expect?
+        v = self._rmeta.var_names.index(var_name)
+        dtype = self._rmeta.var_dtypes[v]
+        rigid = all(s != 0 for s in self._rmeta.var_shapes[v])
+
+        # Now fetch it
         chain_id = self.meta.chain_id
         data = self._client.execute(
             f"SELECT (`{var_name}`) FROM {chain_id} WHERE _draw_idx>={burn};"
         )
         draws = len(data)
+
+        # Safety checks
         if not draws:
             raise Exception(f"No draws in chain {chain_id}.")
-        return numpy.array([vals for vals, in data])
+
+        # The unpacking must also account for non-rigid shapes
+        if rigid:
+            buffer = numpy.empty((draws, *self._rmeta.var_shapes[v]), dtype)
+        else:
+            buffer = numpy.repeat(None, draws)
+        for d, (vals,) in enumerate(data):
+            buffer[d] = numpy.asarray(vals, dtype)
+        return buffer
 
 
 class ClickHouseRun(Run):
@@ -170,13 +188,13 @@ class ClickHouseRun(Run):
     def init_chain(self, chain_number: int) -> ClickHouseChain:
         cmeta = ChainMeta(self.meta.run_id, chain_number)
         create_chain_table(self._client, cmeta)
-        return ClickHouseChain(cmeta, client=self._client)
+        return ClickHouseChain(cmeta, rmeta=self.meta, client=self._client)
 
     def get_chains(self) -> Sequence[ClickHouseChain]:
         chains = []
         for (cid,) in self._client.execute(f"SHOW TABLES LIKE '{self.meta.run_id}%'"):
             cm = ChainMeta(self.meta.run_id, int(cid.split("_")[-1]))
-            chains.append(ClickHouseChain(cm, client=self._client))
+            chains.append(ClickHouseChain(cm, rmeta=self.meta, client=self._client))
         return chains
 
 
