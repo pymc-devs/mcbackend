@@ -28,7 +28,7 @@ def make_draw(names, shapes, dtypes):
     for name, shape, dtype in zip(names, shapes, dtypes):
         dshape = tuple(
             # A pre-registered dim length of 0 means that it's random!
-            s or random.randint(1, 10)
+            s or random.randint(0, 10)
             for s in shape
         )
         if "float" in dtype:
