@@ -24,5 +24,18 @@ class TestPyMCAdapter:
 
         with simple_model:
             trace = TraceBackend(backend)
-            pm.sample(trace=trace, tune=3, draws=5, chains=2, cores=cores, step=pm.Metropolis())
+            idata = pm.sample(
+                trace=trace,
+                tune=3,
+                draws=5,
+                chains=2,
+                cores=cores,
+                step=pm.Metropolis(),
+                discard_tuned_samples=False,
+                compute_convergence_checks=False,
+            )
+        assert idata.posterior.dims["chain"] == 2
+        assert idata.posterior.dims["draw"] == 5
+        assert idata.warmup_posterior.dims["chain"] == 2
+        assert idata.warmup_posterior.dims["draw"] == 3
         pass

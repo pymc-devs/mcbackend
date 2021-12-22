@@ -76,7 +76,7 @@ class TraceBackend(pm.backends.base.BaseTrace):
         sliced.chain = self.chain
         sliced.samples = {varname: self.get_values(varname)[idx] for varname in self.varnames}
         sliced.sampler_vars = self.sampler_vars
-        sliced._draw_idx = (idx.stop - idx.start) // idx.step  # pylint: disable=W0212
+        sliced.draw_idx = (idx.stop - idx.start) // idx.step  # pylint: disable=W0212
 
         if self._stats is None:
             return sliced
