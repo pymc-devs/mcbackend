@@ -1,0 +1,5 @@
+arviz
+bokeh
+clickhouse-driver
+matplotlib
+streamlit
