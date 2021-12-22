@@ -143,7 +143,7 @@ class TestClickHouseBackend:
             "v3": numpy.random.uniform(size=(2, 5, 6)).astype("float64"),
         }
         chain = chains[0]
-        chain.add_draw(0, draw)
+        chain.add_draw(draw)
         assert len(chain._insert_queue) == 1
         chain._commit()
         assert len(chain._insert_queue) == 0
@@ -171,7 +171,7 @@ class TestClickHouseBackend:
             "v3": numpy.random.uniform(size=(2, 5, 6)).astype("float64"),
         }
         chain = chains[0]
-        chain.add_draw(0, draw)
+        chain.add_draw(draw)
         actual = chain.get_draw(0, run.meta.var_names)
         assert set(actual) == set(draw)
         for k in run.meta.var_names:

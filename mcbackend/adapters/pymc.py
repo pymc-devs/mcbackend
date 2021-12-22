@@ -59,7 +59,7 @@ class TraceBackend(pm.backends.base.BaseTrace):
 
     def record(self, point, sampler_stats=None) -> None:  # pylint: disable=W0613
         draw = dict(zip(self.varnames, self.fn(point)))
-        self._chain.add_draw(self._draw_idx, draw)
+        self._chain.add_draw(draw)
         self._draw_idx += 1
         return
 

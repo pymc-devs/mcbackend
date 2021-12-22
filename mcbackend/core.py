@@ -73,10 +73,10 @@ class Chain:
         self.meta = meta
         super().__init__()
 
-    def add_draw(self, draw_idx: int, draw: Dict[str, numpy.ndarray]):
+    def add_draw(self, draw: Dict[str, numpy.ndarray]):
         raise NotImplementedError()
 
-    def get_variable(self, var_name: str) -> Dict[str, numpy.ndarray]:
+    def get_variable(self, var_name: str) -> numpy.ndarray:
         """Retrieve all draws of a variable from an MCMC chain."""
         raise NotImplementedError()
 

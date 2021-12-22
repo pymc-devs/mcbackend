@@ -86,8 +86,14 @@ class ClickHouseChain(Chain):
     """Represents an MCMC chain stored in ClickHouse."""
 
     def __init__(
-        self, meta: ChainMeta, *, client: clickhouse_driver.Client, insert_interval: int = 1
+        self,
+        meta: ChainMeta,
+        *,
+        client: clickhouse_driver.Client,
+        insert_interval: int = 1,
+        draw_idx: int = 0,
     ):
+        self._draw_idx = draw_idx
         self._client = client
         # The following attributes belong to the batched insert mechanism.
         # Inserting in batches is much faster than inserting single rows.
@@ -97,12 +103,9 @@ class ClickHouseChain(Chain):
         self._insert_interval = insert_interval
         super().__init__(meta)
 
-    def add_draw(
-        self,
-        draw_idx: int,
-        draw: Dict[str, numpy.ndarray],
-    ):
-        params = {"_draw_idx": draw_idx, **draw}
+    def add_draw(self, draw: Dict[str, numpy.ndarray]):
+        params = {"_draw_idx": self._draw_idx, **draw}
+        self._draw_idx += 1
         if not self._insert_query:
             chain_id = self.meta.chain_id
             names = ", ".join(params.keys())
@@ -145,7 +148,7 @@ class ClickHouseChain(Chain):
         var_name: int,
         *,
         burn: int = 0,
-    ) -> Dict[str, numpy.ndarray]:
+    ) -> numpy.ndarray:
         self._commit()
         chain_id = self.meta.chain_id
         data = self._client.execute(
