@@ -3,9 +3,17 @@ Module with metadata structures and abstract classes.
 """
 import datetime
 from dataclasses import dataclass
-from typing import Dict, Sequence, Tuple
+from typing import Dict, Optional, Sequence, Tuple
 
 import numpy
+
+Shape = Sequence[int]
+
+
+def is_rigid(shape: Optional[Shape]):
+    if shape is None:
+        return False
+    return all(s != 0 for s in shape)
 
 
 class RunMeta:
@@ -13,7 +21,7 @@ class RunMeta:
 
     def __init__(
         self,
-        run_id: str,
+        rid: str,
         var_names: Sequence[str],
         var_dtypes: Sequence[str],
         var_shapes: Sequence[Sequence[int]],
@@ -22,7 +30,7 @@ class RunMeta:
         created_at: datetime = None,
     ):
         self._created_at = created_at or datetime.datetime.now().astimezone(datetime.timezone.utc)
-        self._run_id = run_id
+        self._rid = rid
         self._var_names = tuple(var_names)
         self._var_dtypes = tuple(var_dtypes)
         self._var_shapes = tuple(map(tuple, var_shapes))
@@ -33,8 +41,8 @@ class RunMeta:
         return self._created_at
 
     @property
-    def run_id(self) -> str:
-        return self._run_id
+    def rid(self) -> str:
+        return self._rid
 
     @property
     def var_names(self) -> Tuple[str]:
@@ -57,20 +65,26 @@ class RunMeta:
 class ChainMeta:
     """Metadata of one MCMC chain."""
 
-    run_id: str
+    rid: str
     chain_number: int
 
     @property
-    def chain_id(self) -> str:
+    def id(self) -> str:
         """Unique identifier of this MCMC chain."""
-        return f"{self.run_id}_chain_{self.chain_number}"
+        return chain_id(self)
+
+
+def chain_id(meta: ChainMeta):
+    return f"{meta.rid}_chain_{meta.chain_number}"
 
 
 class Chain:
     """A handle on one Markov-chain."""
 
-    def __init__(self, meta: ChainMeta) -> None:
-        self.meta = meta
+    def __init__(self, cmeta: ChainMeta, rmeta: RunMeta) -> None:
+        self.cmeta = cmeta
+        self.rmeta = rmeta
+        self._cid = chain_id(cmeta)
         super().__init__()
 
     def add_draw(self, draw: Dict[str, numpy.ndarray]):
@@ -83,6 +97,10 @@ class Chain:
     def get_draw(self, draw_idx: int, var_names: Sequence[str]) -> Dict[str, numpy.ndarray]:
         """Retrieve one draw from an MCMC chain."""
         raise NotImplementedError()
+
+    @property
+    def cid(self) -> str:
+        return self._cid
 
 
 class Run:

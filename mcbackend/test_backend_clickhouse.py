@@ -13,7 +13,7 @@ from .backends.clickhouse import (
     create_chain_table,
     create_runs_table,
 )
-from .core import Chain, ChainMeta, Run, RunMeta
+from .core import Chain, ChainMeta, Run, RunMeta, chain_id
 from .test_utils import CheckBehavior, make_runmeta
 
 try:
@@ -64,20 +64,20 @@ class TestClickHouseBackend(CheckBehavior):
         pass
 
     def test_init_run(self):
-        meta = make_runmeta(run_id="my_first_run")
+        meta = make_runmeta(rid="my_first_run")
         run = self.backend.init_run(meta)
         assert isinstance(run, Run)
         assert len(self._client.execute("SELECT * FROM runs;")) == 1
         runs = self.backend.get_runs()
         assert isinstance(runs, pandas.DataFrame)
-        assert runs.index.name == "run_id"
+        assert runs.index.name == "rid"
         assert "my_first_run" in runs.index.values
         pass
 
     def test_get_run(self):
         meta = make_runmeta()
         self.backend.init_run(meta)
-        run = self.backend.get_run(meta.run_id)
+        run = self.backend.get_run(meta.rid)
         assert run.meta.__dict__ == meta.__dict__
         pass
 
@@ -88,10 +88,10 @@ class TestClickHouseBackend(CheckBehavior):
             var_dtypes=["uint16", "float32", "float64"],
         )
         self.backend.init_run(rmeta)
-        cmeta = ChainMeta(rmeta.run_id, 1)
+        cmeta = ChainMeta(rmeta.rid, 1)
         create_chain_table(self._client, cmeta)
         rows, names_and_types = self._client.execute(
-            f"SELECT * FROM {cmeta.chain_id};", with_column_types=True
+            f"SELECT * FROM {chain_id(cmeta)};", with_column_types=True
         )
         assert len(rows) == 0
         assert names_and_types == [
@@ -121,7 +121,7 @@ class TestClickHouseBackend(CheckBehavior):
         assert len(chain._insert_queue) == 1
         chain._commit()
         assert len(chain._insert_queue) == 0
-        rows = self._client.execute(f"SELECT _draw_idx,v1,v2,v3 FROM {chain.meta.chain_id};")
+        rows = self._client.execute(f"SELECT _draw_idx,v1,v2,v3 FROM {chain.cid};")
         assert len(rows) == 1
         idx, v1, v2, v3 = rows[0]
         assert idx == 0

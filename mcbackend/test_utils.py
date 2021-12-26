@@ -6,9 +6,9 @@ import numpy
 from .core import Backend, Chain, ChainMeta, Run, RunMeta
 
 
-def make_runmeta(*, flexibility: bool = False, **kwargs):
+def make_runmeta(*, flexibility: bool = False, **kwargs) -> RunMeta:
     defaults = dict(
-        run_id=hagelkorn.random(),
+        rid=hagelkorn.random(),
         var_names=["tensor", "scalar"],
         var_dtypes=["int8", "float64"],
         var_shapes=[(3, 4, 5), ()],
@@ -64,8 +64,8 @@ class CheckBehavior(BaseBackendTest):
         assert isinstance(run, Run)
         assert isinstance(run, self.cls_run)
         chain = run.init_chain(7)
-        assert isinstance(chain.meta, ChainMeta)
-        assert chain.meta.chain_number == 7
+        assert isinstance(chain.cmeta, ChainMeta)
+        assert chain.cmeta.chain_number == 7
         assert isinstance(chain, Chain)
         assert isinstance(chain, self.cls_chain)
         pass

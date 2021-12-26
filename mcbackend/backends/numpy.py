@@ -12,7 +12,7 @@ from ..core import Backend, Chain, ChainMeta, Run, RunMeta
 class NumPyChain(Chain):
     """Stores value draws in NumPy arrays and can pre-allocate memory."""
 
-    def __init__(self, cmeta: ChainMeta, *, rmeta: RunMeta, preallocate: int) -> None:
+    def __init__(self, cmeta: ChainMeta, rmeta: RunMeta, *, preallocate: int) -> None:
         """Creates an in-memory storage for draws from a chain.
 
         Parameters
@@ -41,7 +41,7 @@ class NumPyChain(Chain):
                 self._samples[vn] = numpy.empty(reserve, dtype)
             else:
                 self._samples[vn] = numpy.repeat(None, preallocate)
-        super().__init__(cmeta)
+        super().__init__(cmeta, rmeta)
 
     def add_draw(self, draw: Dict[str, numpy.ndarray]):
         for vn, v in draw.items():
@@ -75,8 +75,8 @@ class NumPyRun(Run):
         super().__init__(meta)
 
     def init_chain(self, chain_number: int) -> NumPyChain:
-        cmeta = ChainMeta(self.meta.run_id, chain_number)
-        return NumPyChain(cmeta, rmeta=self.meta, **self._settings)
+        cmeta = ChainMeta(self.meta.rid, chain_number)
+        return NumPyChain(cmeta, self.meta, **self._settings)
 
 
 class NumPyBackend(Backend):

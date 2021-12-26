@@ -16,7 +16,7 @@ class TestNumPyBackend(CheckBehavior):
     def test_targets(self):
         imb = NumPyBackend(preallocate=123)
         rm = RunMeta(
-            run_id=hagelkorn.random(),
+            rid=hagelkorn.random(),
             var_names=["tensor", "scalar", "changeling"],
             var_dtypes=["int8", "float64", "uint16"],
             var_shapes=[(3, 4, 5), (), (3, 0)],
@@ -44,7 +44,7 @@ class TestNumPyBackend(CheckBehavior):
     def test_growing(self):
         imb = NumPyBackend(preallocate=15)
         rm = RunMeta(
-            run_id=hagelkorn.random(),
+            rid=hagelkorn.random(),
             var_names=["A", "B"],
             var_dtypes=["float32", "float32"],
             var_shapes=[(2,), (0,)],
