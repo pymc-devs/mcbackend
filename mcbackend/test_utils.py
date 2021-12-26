@@ -1,40 +1,40 @@
 import random
+from typing import Sequence
 
 import hagelkorn
 import numpy
 
-from .core import Backend, Chain, ChainMeta, Run, RunMeta
+from mcbackend.meta import ChainMeta, RunMeta, Variable
+
+from .core import Backend, Chain, Run
 
 
 def make_runmeta(*, flexibility: bool = False, **kwargs) -> RunMeta:
     defaults = dict(
         rid=hagelkorn.random(),
-        var_names=["tensor", "scalar"],
-        var_dtypes=["int8", "float64"],
-        var_shapes=[(3, 4, 5), ()],
-        var_is_free=[True, False],
+        variables=[
+            Variable("tensor", "int8", (3, 4, 5), True),
+            Variable("scalar", "float64", (), False),
+        ],
     )
     if flexibility:
-        defaults["var_names"] = defaults["var_names"] + ["changeling"]
-        defaults["var_dtypes"] = defaults["var_dtypes"] + ["uint16"]
-        defaults["var_shapes"] = defaults["var_shapes"] + [(3, 0)]
-        defaults["var_is_free"] = defaults["var_is_free"] + [True]
+        defaults["variables"].append(Variable("changeling", "uint16", (3, 0), True))
     defaults.update(kwargs)
     return RunMeta(**defaults)
 
 
-def make_draw(names, shapes, dtypes):
+def make_draw(variables: Sequence[Variable]):
     draw = {}
-    for name, shape, dtype in zip(names, shapes, dtypes):
+    for var in variables:
         dshape = tuple(
             # A pre-registered dim length of 0 means that it's random!
             s or random.randint(0, 10)
-            for s in shape
+            for s in var.shape
         )
-        if "float" in dtype:
-            draw[name] = numpy.random.normal(size=dshape).astype(dtype)
+        if "float" in var.dtype:
+            draw[var.name] = numpy.random.normal(size=dshape).astype(var.dtype)
         else:
-            draw[name] = numpy.random.randint(low=0, high=100, size=dshape).astype(dtype)
+            draw[var.name] = numpy.random.randint(low=0, high=100, size=dshape).astype(var.dtype)
     return draw
 
 
@@ -74,9 +74,9 @@ class CheckBehavior(BaseBackendTest):
         rmeta = make_runmeta()
         run = self.backend.init_run(rmeta)
         chain = run.init_chain(7)
-        expected = make_draw(rmeta.var_names, rmeta.var_shapes, rmeta.var_dtypes)
+        expected = make_draw(rmeta.variables)
         chain.add_draw(expected)
-        actual = chain.get_draw(0, rmeta.var_names)
+        actual = chain.get_draw(0, [v.name for v in rmeta.variables])
         assert isinstance(actual, dict)
         assert set(actual) == set(expected)
         for vn, act in actual.items():
@@ -89,18 +89,16 @@ class CheckBehavior(BaseBackendTest):
         chain = run.init_chain(7)
 
         # Generate draws and add them to the chain
-        generated = [
-            make_draw(rmeta.var_names, rmeta.var_shapes, rmeta.var_dtypes) for _ in range(10)
-        ]
+        generated = [make_draw(rmeta.variables) for _ in range(10)]
         for draw in generated:
             chain.add_draw(draw)
 
         # Fetch each variable once to check the returned type and values
-        for vn, expdtype in zip(rmeta.var_names, rmeta.var_dtypes):
-            expected = [draw[vn] for draw in generated]
-            actual = chain.get_variable(vn)
+        for var in rmeta.variables:
+            expected = [draw[var.name] for draw in generated]
+            actual = chain.get_variable(var.name)
             assert isinstance(actual, numpy.ndarray)
-            if vn == "changeling":
+            if var.name == "changeling":
                 # Non-ridid variables are returned as object-arrays.
                 assert actual.shape == (len(expected),)
                 assert actual.dtype == object
@@ -109,6 +107,19 @@ class CheckBehavior(BaseBackendTest):
                     numpy.testing.assert_array_equal(act, exp)
             else:
                 assert tuple(actual.shape) == tuple(numpy.shape(expected))
-                assert actual.dtype == expdtype
+                assert actual.dtype == var.dtype
                 numpy.testing.assert_array_equal(actual, expected)
+        pass
+
+
+class CheckPerformance(BaseBackendTest):
+    """Checks that the backend is reasonably fast via various high-load tests."""
+
+    def test__many_draws(self):
+        pass
+
+    def test__many_variables(self):
+        pass
+
+    def test__big_variables(self):
         pass

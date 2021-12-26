@@ -1,11 +1,11 @@
 """
 Module with metadata structures and abstract classes.
 """
-import datetime
-from dataclasses import dataclass
-from typing import Dict, Optional, Sequence, Tuple
+from typing import Dict, Optional, Sequence
 
 import numpy
+
+from .meta import ChainMeta, RunMeta, Variable
 
 Shape = Sequence[int]
 
@@ -14,64 +14,6 @@ def is_rigid(shape: Optional[Shape]):
     if shape is None:
         return False
     return all(s != 0 for s in shape)
-
-
-class RunMeta:
-    """Metadata of a multi-chain MCMC run."""
-
-    def __init__(
-        self,
-        rid: str,
-        var_names: Sequence[str],
-        var_dtypes: Sequence[str],
-        var_shapes: Sequence[Sequence[int]],
-        var_is_free: Sequence[bool],
-        *,
-        created_at: datetime = None,
-    ):
-        self._created_at = created_at or datetime.datetime.now().astimezone(datetime.timezone.utc)
-        self._rid = rid
-        self._var_names = tuple(var_names)
-        self._var_dtypes = tuple(var_dtypes)
-        self._var_shapes = tuple(map(tuple, var_shapes))
-        self._var_is_free = tuple(map(bool, var_is_free))
-
-    @property
-    def created_at(self) -> datetime.datetime:
-        return self._created_at
-
-    @property
-    def rid(self) -> str:
-        return self._rid
-
-    @property
-    def var_names(self) -> Tuple[str]:
-        return self._var_names
-
-    @property
-    def var_dtypes(self) -> Tuple[str]:
-        return self._var_dtypes
-
-    @property
-    def var_shapes(self) -> Tuple[Tuple[int, ...]]:
-        return self._var_shapes
-
-    @property
-    def var_is_free(self) -> Tuple[bool]:
-        return self._var_is_free
-
-
-@dataclass
-class ChainMeta:
-    """Metadata of one MCMC chain."""
-
-    rid: str
-    chain_number: int
-
-    @property
-    def id(self) -> str:
-        """Unique identifier of this MCMC chain."""
-        return chain_id(self)
 
 
 def chain_id(meta: ChainMeta):
@@ -101,6 +43,10 @@ class Chain:
     @property
     def cid(self) -> str:
         return self._cid
+
+    @property
+    def variables(self) -> Dict[str, Variable]:
+        return {var.name: var for var in self.rmeta.variables}
 
 
 class Run:

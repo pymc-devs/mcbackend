@@ -6,7 +6,8 @@ from typing import Dict, Sequence
 
 import numpy
 
-from ..core import Backend, Chain, ChainMeta, Run, RunMeta
+from ..core import Backend, Chain, Run, is_rigid
+from ..meta import ChainMeta, RunMeta
 
 
 class NumPyChain(Chain):
@@ -33,14 +34,14 @@ class NumPyChain(Chain):
         self._samples = {}
         self._draw_idx = 0
         # Create storage ndarrays for each variable.
-        for vn, shape, dtype in zip(rmeta.var_names, rmeta.var_shapes, rmeta.var_dtypes):
-            is_rigid = all(s != 0 for s in shape)
-            self._is_rigid[vn] = is_rigid
-            if preallocate > 0 and is_rigid:
-                reserve = (preallocate, *shape)
-                self._samples[vn] = numpy.empty(reserve, dtype)
+        for var in rmeta.variables:
+            rigid = is_rigid(var.shape)
+            self._is_rigid[var.name] = rigid
+            if preallocate > 0 and rigid:
+                reserve = (preallocate, *var.shape)
+                self._samples[var.name] = numpy.empty(reserve, var.dtype)
             else:
-                self._samples[vn] = numpy.repeat(None, preallocate)
+                self._samples[var.name] = numpy.repeat(None, preallocate)
         super().__init__(cmeta, rmeta)
 
     def add_draw(self, draw: Dict[str, numpy.ndarray]):

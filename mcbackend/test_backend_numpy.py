@@ -3,6 +3,8 @@ import random
 import hagelkorn
 import numpy
 
+from mcbackend.meta import Variable
+
 from .backends.numpy import NumPyBackend, NumPyChain, NumPyRun
 from .core import RunMeta
 from .test_utils import CheckBehavior
@@ -17,10 +19,11 @@ class TestNumPyBackend(CheckBehavior):
         imb = NumPyBackend(preallocate=123)
         rm = RunMeta(
             rid=hagelkorn.random(),
-            var_names=["tensor", "scalar", "changeling"],
-            var_dtypes=["int8", "float64", "uint16"],
-            var_shapes=[(3, 4, 5), (), (3, 0)],
-            var_is_free=[True, False, True],
+            variables=[
+                Variable("tensor", "int8", (3, 4, 5), True),
+                Variable("scalar", "float64", (), False),
+                Variable("changeling", "uint16", (3, 0), True),
+            ],
         )
         run = imb.init_run(rm)
         chain = run.init_chain(0)
@@ -45,10 +48,20 @@ class TestNumPyBackend(CheckBehavior):
         imb = NumPyBackend(preallocate=15)
         rm = RunMeta(
             rid=hagelkorn.random(),
-            var_names=["A", "B"],
-            var_dtypes=["float32", "float32"],
-            var_shapes=[(2,), (0,)],
-            var_is_free=[True, True],
+            variables=[
+                Variable(
+                    "A",
+                    "float32",
+                    (2,),
+                    True,
+                ),
+                Variable(
+                    "B",
+                    "float32",
+                    (0,),
+                    True,
+                ),
+            ],
         )
         run = imb.init_run(rm)
         chain = run.init_chain(0)

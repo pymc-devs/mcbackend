@@ -6,6 +6,8 @@ import numpy
 import pandas
 import pytest
 
+from mcbackend.meta import ChainMeta, RunMeta, Variable
+
 from .backends.clickhouse import (
     ClickHouseBackend,
     ClickHouseChain,
@@ -13,7 +15,7 @@ from .backends.clickhouse import (
     create_chain_table,
     create_runs_table,
 )
-from .core import Chain, ChainMeta, Run, RunMeta, chain_id
+from .core import Chain, Run, chain_id
 from .test_utils import CheckBehavior, make_runmeta
 
 try:
@@ -78,14 +80,20 @@ class TestClickHouseBackend(CheckBehavior):
         meta = make_runmeta()
         self.backend.init_run(meta)
         run = self.backend.get_run(meta.rid)
-        assert run.meta.__dict__ == meta.__dict__
+        assert set(run.meta.__dict__) == set(meta.__dict__)
+        for k in meta.__dict__:
+            actual = run.meta.__dict__[k]
+            expected = meta.__dict__[k]
+            assert actual == expected, f"Not matching for key {k}."
         pass
 
     def test_create_chain_table(self):
         rmeta = make_runmeta(
-            var_names=["scalar", "1D", "3D"],
-            var_shapes=[(), (3,), (2, 5, 6)],
-            var_dtypes=["uint16", "float32", "float64"],
+            variables=[
+                Variable("scalar", "uint16", ()),
+                Variable("1D", "float32", (3,)),
+                Variable("3D", "float64", (2, 5, 6)),
+            ],
         )
         self.backend.init_run(rmeta)
         cmeta = ChainMeta(rmeta.rid, 1)
@@ -106,9 +114,11 @@ class TestClickHouseBackend(CheckBehavior):
         run, chains = fully_initialized(
             self.backend,
             make_runmeta(
-                var_names=["v1", "v2", "v3"],
-                var_shapes=[(), (3,), (2, 5, 6)],
-                var_dtypes=["uint16", "float32", "float64"],
+                variables=[
+                    Variable("v1", "uint16", (), True),
+                    Variable("v2", "float32", (3,), True),
+                    Variable("v3", "float64", (2, 5, 6), True),
+                ],
             ),
         )
         draw = {

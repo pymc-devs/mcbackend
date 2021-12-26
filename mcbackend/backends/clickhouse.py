@@ -1,7 +1,6 @@
 """
 This module implements a backend for sample storage in ClickHouse.
 """
-import inspect
 import logging
 import time
 from datetime import datetime, timezone
@@ -11,7 +10,9 @@ import clickhouse_driver
 import numpy
 import pandas
 
-from ..core import Backend, Chain, ChainMeta, Run, RunMeta, chain_id, is_rigid
+from mcbackend.meta import ChainMeta, RunMeta, Variable
+
+from ..core import Backend, Chain, Run, chain_id, is_rigid
 
 _log = logging.getLogger(__file__)
 
@@ -150,12 +151,7 @@ class ClickHouseChain(Chain):
         burn: int = 0,
     ) -> numpy.ndarray:
         self._commit()
-        # What do we expect?
-        v = self.rmeta.var_names.index(var_name)
-        dtype = self.rmeta.var_dtypes[v]
-        rigid = is_rigid(s != 0 for s in self.rmeta.var_shapes[v])
-
-        # Now fetch it
+        var = self.variables[var_name]
         data = self._client.execute(
             f"SELECT (`{var_name}`) FROM {self.cid} WHERE _draw_idx>={burn};"
         )
@@ -166,12 +162,12 @@ class ClickHouseChain(Chain):
             raise Exception(f"No draws in chain {self.cid}.")
 
         # The unpacking must also account for non-rigid shapes
-        if rigid:
-            buffer = numpy.empty((draws, *self.rmeta.var_shapes[v]), dtype)
+        if is_rigid(var.shape):
+            buffer = numpy.empty((draws, *var.shape), var.dtype)
         else:
             buffer = numpy.repeat(None, draws)
         for d, (vals,) in enumerate(data):
-            buffer[d] = numpy.asarray(vals, dtype)
+            buffer[d] = numpy.asarray(vals, var.dtype)
         return buffer
 
 
@@ -214,15 +210,15 @@ class ClickHouseBackend(Backend):
             _log.warning("A run with id %s is already present in the database.", meta.rid)
             created_at = existing[0][1].replace(tzinfo=timezone.utc)
         else:
-            created_at = meta.created_at
+            created_at = datetime.now().astimezone(timezone.utc)
             query = "INSERT INTO runs (created_at, rid, var_names, var_dtypes, var_shapes, var_is_free) VALUES"
             params = dict(
                 created_at=created_at,
                 rid=meta.rid,
-                var_names=meta.var_names,
-                var_dtypes=meta.var_dtypes,
-                var_shapes=meta.var_shapes,
-                var_is_free=list(map(int, meta.var_is_free)),
+                var_names=[v.name for v in meta.variables],
+                var_dtypes=[v.dtype for v in meta.variables],
+                var_shapes=[v.shape for v in meta.variables],
+                var_is_free=[int(v.is_free) for v in meta.variables],
             )
             self._client.execute(query, [params])
         return ClickHouseRun(meta, client=self._client, created_at=created_at)
@@ -234,15 +230,20 @@ class ClickHouseBackend(Backend):
         return df.set_index("rid")
 
     def get_run(self, rid: str) -> ClickHouseRun:
-        keys = tuple(inspect.signature(RunMeta.__init__).parameters)[1:]
-        names = ",".join(keys)
         rows = self._client.execute(
-            f"SELECT {names} FROM runs WHERE rid=%(rid)s;",
+            "SELECT rid,created_at,var_names,var_dtypes,var_shapes,var_is_free FROM runs WHERE rid=%(rid)s;",
             {"rid": rid},
         )
         if len(rows) != 1:
             raise Exception(f"Unexpected number of {len(rows)} results for rid='{rid}'.")
-        kwargs = dict(zip(keys, rows[0]))
-        kwargs["created_at"] = kwargs["created_at"].replace(tzinfo=timezone.utc)
+        kwargs = dict(
+            rid=rows[0][0],
+            variables=[
+                Variable(name, dtype, tuple(shape), bool(is_free))
+                for name, dtype, shape, is_free in zip(*rows[0][2:])
+            ],
+        )
         meta = RunMeta(**kwargs)
-        return ClickHouseRun(meta, client=self._client, created_at=kwargs["created_at"])
+        return ClickHouseRun(
+            meta, client=self._client, created_at=rows[0][1].replace(tzinfo=timezone.utc)
+        )
