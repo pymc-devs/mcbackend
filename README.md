@@ -12,6 +12,19 @@ docker run --detach --rm --name arviz-db -p 9000:9000 --ulimit nofile=262144:262
 ```
 
 After that just run `pytest -vx`.
+
+## Compiling the ProtocolBuffers
+If you don't already have it, first install the protobuf compiler:
+```bash
+conda install protobuf
+```
+
+Then compile the `*.proto` files:
+```bash
+cd protobufs
+python generate.py
+```
+
 # Experimental: `ArviZ-server`
 This repository also includes an experimental Streamlit app for querying the ClickHouse backend and ArviZ plots while the MCMC is still running.
 

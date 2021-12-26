@@ -1,0 +1,12 @@
+syntax = "proto3";
+package npproto;
+
+
+// Represents a NumPy array of arbitrary shape or dtype.
+// Note that the array must support the buffer protocol.
+message ndarray {
+    bytes data = 1;
+    string dtype = 2;
+    repeated int64 shape = 3;
+    repeated int64 strides = 4;
+}

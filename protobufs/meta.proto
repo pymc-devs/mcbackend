@@ -1,0 +1,77 @@
+syntax = "proto3";
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+import "npproto/ndarray.proto";
+
+
+// Metadata associated with an MCMC chain.
+message ChainMeta {
+    // Unique identifier of the MCMC run this chain belongs to.
+    string rid = 1;
+    // Number of the chain inside the MCMC run.
+    int32 chain_number = 2;
+}
+
+// Description of a model variable.
+message Variable {
+    // Name of the variable.
+    string name = 1;
+    // Data type (lowercase).
+    string dtype = 2;
+    // The shape tuple.
+    // May contain 0es for dynamically sized dimensions.
+    // Leave None when the dimensionality is also dynamic.
+    repeated uint64 shape = 3;
+    // Is this variable a free parameter, or a deterministic model output?
+    bool is_free = 4;
+    // Names of variable dimensions.
+    repeated string dims = 5;
+}
+
+// A named array that labels a dimension.
+message Coordinate {
+    // Name of the dimension these labels belong to.
+    string name = 1;
+    // Coordinate values.
+    npproto.ndarray values = 2;
+}
+
+// Like google.protobuf.Value, but with support for additional types.
+message ExtendedValue {
+    // The kind of value.
+    oneof kind {
+        // Represents a null value.
+        google.protobuf.NullValue null_value = 1;
+        // Represents a double value.
+        double number_value = 2;
+        // Represents a string value.
+        string string_value = 3;
+        // Represents a boolean value.
+        bool bool_value = 4;
+        // Represents a structured value.
+        google.protobuf.Struct struct_value = 5;
+        // Represents a repeated `Value`.
+        google.protobuf.ListValue list_value = 6;
+        // Represents a timestamp value.
+        google.protobuf.Timestamp timestamp_value = 7;
+        // Represents a duration value.
+        google.protobuf.Duration duration_value = 8;
+        // Represents a NumPy array value.
+        npproto.ndarray ndarray_value = 9;
+    }
+}
+
+// Metadata associated with an MCMC run.
+message RunMeta {
+    // Unique identifier of the MCMC run.
+    string rid = 1;
+    // Metadata of model variables.
+    repeated Variable variables = 3;
+    // Named arrays to label dimensions.
+    repeated Coordinate coordinates = 4;
+    // Arbitrary metadata
+    map<string, ExtendedValue> attributes = 5;
+}

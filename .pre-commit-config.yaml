@@ -29,5 +29,5 @@ repos:
   hooks:
     - id: pylint
       args: [--rcfile=.pylintrc]
-      exclude: test_*
+      exclude: (test_*|mcbackend/meta.py|mcbackend/npproto/)
       files: ^mcbackend/
