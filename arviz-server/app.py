@@ -1,3 +1,4 @@
+import enum
 import os
 import time
 from typing import Sequence
@@ -44,35 +45,34 @@ class App:
         return
 
     def select_run(self):
-        run_id = st.text_input(f"What's your MCMC run ID?", placeholder=self.df_runs.index[-1])
-        if not run_id:
+        if len(self.df_runs) == 0:
+            st.write("There are no MCMC runs in the database yet.")
             st.stop()
-        run = self.backend.get_run(run_id)
+        rid = st.text_input(f"What's your MCMC run ID?", placeholder=self.df_runs.index[-1])
+        if not rid:
+            st.stop()
+        run = self.backend.get_run(rid)
         chains = run.get_chains()
-        # st.write(f"✔ Found {len(chain_ids)} chains for run {run_id}.")
+        # st.write(f"✔ Found {len(chain_ids)} chains for run {rid}.")
         return run, chains
 
     def refresh_idata(self, run: ClickHouseRun, chains: Sequence[ClickHouseChain]):
         t_start = time.time()
         nchains = len(chains)
-        var_names = [vn for vn, is_free in zip(run.meta.var_names, run.meta.var_is_free) if is_free]
-        var_shapes = [
-            sv for sv, is_free in zip(run.meta.var_shapes, run.meta.var_is_free) if is_free
-        ]
+        var_names = [var.name for var in run.meta.variables if var.is_free]
+        var_shapes = [var.shape for var in run.meta.variables if var.is_free]
 
         # Prepare dims and coords from run metadata
         dims = {}
         coords = {
-            "chain": [c.meta.chain_number for c in chains],
+            "chain": [c.cmeta.chain_number for c in chains],
             "draw": None,  # this is unknown until chains were loaded
         }
-        for vn, vshape in zip(var_names, var_shapes):
-            vardims = []
-            for d, s in enumerate(vshape):
-                dname = f"{vn}_dim_{d}"
-                vardims.append(dname)
+        for var in run.meta.variables:
+            vardims = var.dims or [f"{var.name}_dim_{d}" for d, s in enumerate(var.shape)]
+            for dname, s in zip(vardims, var.shape):
                 coords[dname] = list(range(s))
-            dims[vn] = ["chain", "draw"] + vardims
+            dims[var.name] = ["chain", "draw"] + vardims
 
         # Now load MCMC draws for each chain
         samples = {vn: [] for vn in var_names}
