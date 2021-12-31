@@ -66,6 +66,9 @@ class TestClickHouseBackend(CheckBehavior):
         pass
 
     def test_init_run(self):
+        runs = self.backend.get_runs()
+        assert len(runs) == 0
+
         meta = make_runmeta(rid="my_first_run")
         run = self.backend.init_run(meta)
         assert isinstance(run, Run)

@@ -225,6 +225,8 @@ class ClickHouseBackend(Backend):
 
     def get_runs(self) -> pandas.DataFrame:
         df = self._client.query_dataframe("SELECT * FROM runs ORDER BY created_at;")
+        if df.empty:
+            df["created_at,rid,var_names,var_dtypes,var_shapes,var_is_free".split(",")] = None
         df["created_at"] = [ca.replace(tzinfo=timezone.utc) for ca in df["created_at"]]
         df["var_is_free"] = [list(map(bool, vif)) for vif in df["var_is_free"]]
         return df.set_index("rid")
