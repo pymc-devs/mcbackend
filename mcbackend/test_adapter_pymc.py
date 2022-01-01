@@ -1,9 +1,11 @@
 import clickhouse_driver
+import hagelkorn
 import pymc as pm
 import pytest
 
 from .adapters.pymc import TraceBackend
 from .backends.clickhouse import ClickHouseBackend
+from .test_backend_clickhouse import HAS_REAL_DB
 
 
 @pytest.fixture
@@ -16,11 +18,29 @@ def simple_model():
     return pmodel
 
 
+@pytest.mark.skipif(
+    condition=not HAS_REAL_DB,
+    reason="Integration tests need a ClickHouse server on localhost:9000 without authentication.",
+)
 class TestPyMCAdapter:
+    def setup_method(self, method):
+        """Initializes a fresh database just for this test method."""
+        self._db = "testing_" + hagelkorn.random()
+        self._client_main = clickhouse_driver.Client("localhost")
+        self._client_main.execute(f"CREATE DATABASE {self._db};")
+        self._client = clickhouse_driver.Client("localhost", database=self._db)
+        self.backend = ClickHouseBackend(self._client)
+        return
+
+    def teardown_method(self, method):
+        self._client.disconnect()
+        self._client_main.execute(f"DROP DATABASE {self._db};")
+        self._client_main.disconnect()
+        return
+
     @pytest.mark.parametrize("cores", [1, 3])
     def test_cores(self, simple_model, cores):
-        client = clickhouse_driver.Client("localhost")
-        backend = ClickHouseBackend(client)
+        backend = ClickHouseBackend(self._client)
 
         with simple_model:
             trace = TraceBackend(backend)
