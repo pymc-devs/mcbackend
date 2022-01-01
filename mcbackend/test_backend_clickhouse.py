@@ -83,11 +83,7 @@ class TestClickHouseBackend(CheckBehavior):
         meta = make_runmeta()
         self.backend.init_run(meta)
         run = self.backend.get_run(meta.rid)
-        assert set(run.meta.__dict__) == set(meta.__dict__)
-        for k in meta.__dict__:
-            actual = run.meta.__dict__[k]
-            expected = meta.__dict__[k]
-            assert actual == expected, f"Not matching for key {k}."
+        assert run.meta == meta
         pass
 
     def test_create_chain_table(self):

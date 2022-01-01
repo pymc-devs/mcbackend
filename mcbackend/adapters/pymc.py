@@ -47,17 +47,17 @@ class TraceBackend(pm.backends.base.BaseTrace):
         # Initialize backend sessions
         free_rv_names = [rv.name for rv in self.model.free_RVs]
         if not self._run:
-            self._run = self._backend.init_run(
-                RunMeta(
-                    self.run_id,
-                    variables=[
-                        Variable(name, str(dtype), list(shape), (name in free_rv_names))
-                        for name, dtype, shape in zip(
-                            self.varnames, self.var_dtypes.values(), self.var_shapes.values()
-                        )
-                    ],
+            variables = [
+                Variable(name, str(dtype), list(shape), (name in free_rv_names))
+                for name, dtype, shape in zip(
+                    self.varnames, self.var_dtypes.values(), self.var_shapes.values()
                 )
+            ]
+            rmeta = RunMeta(
+                self.run_id,
+                variables=variables,
             )
+            self._run = self._backend.init_run(rmeta)
         self._chain = self._run.init_chain(chain_number=chain)
         return
 

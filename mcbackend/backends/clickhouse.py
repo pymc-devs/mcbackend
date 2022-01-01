@@ -10,7 +10,7 @@ import clickhouse_driver
 import numpy
 import pandas
 
-from mcbackend.meta import ChainMeta, RunMeta, Variable
+from mcbackend.meta import ChainMeta, RunMeta
 
 from ..core import Backend, Chain, Run, chain_id, is_rigid
 
@@ -36,10 +36,7 @@ def create_runs_table(client: clickhouse_driver.Client):
         CREATE TABLE IF NOT EXISTS runs (
             created_at DateTime64(9, "UTC"),
             rid String,
-            var_names Array(String),
-            var_dtypes Array(String),
-            var_shapes Array(Array(UInt64)),
-            var_is_free Array(UInt8)
+            proto String
         )
         ENGINE MergeTree()
         PRIMARY KEY (rid)
@@ -203,41 +200,33 @@ class ClickHouseBackend(Backend):
             created_at = existing[0][1].replace(tzinfo=timezone.utc)
         else:
             created_at = datetime.now().astimezone(timezone.utc)
-            query = "INSERT INTO runs (created_at, rid, var_names, var_dtypes, var_shapes, var_is_free) VALUES"
+            query = "INSERT INTO runs (created_at, rid, proto) VALUES"
             params = dict(
                 created_at=created_at,
                 rid=meta.rid,
-                var_names=[v.name for v in meta.variables],
-                var_dtypes=[v.dtype for v in meta.variables],
-                var_shapes=[v.shape for v in meta.variables],
-                var_is_free=[int(v.is_free) for v in meta.variables],
+                proto=bytes(meta).decode("utf-8"),
             )
             self._client.execute(query, [params])
         return ClickHouseRun(meta, client=self._client, created_at=created_at)
 
     def get_runs(self) -> pandas.DataFrame:
-        df = self._client.query_dataframe("SELECT * FROM runs ORDER BY created_at;")
+        df = self._client.query_dataframe(
+            "SELECT created_at,rid,proto FROM runs ORDER BY created_at;"
+        )
         if df.empty:
-            df["created_at,rid,var_names,var_dtypes,var_shapes,var_is_free".split(",")] = None
+            df["created_at,rid,proto".split(",")] = None
         df["created_at"] = [ca.replace(tzinfo=timezone.utc) for ca in df["created_at"]]
-        df["var_is_free"] = [list(map(bool, vif)) for vif in df["var_is_free"]]
+        df["proto"] = [RunMeta().parse(proto.encode("utf-8")) for proto in df.proto]
         return df.set_index("rid")
 
     def get_run(self, rid: str) -> ClickHouseRun:
         rows = self._client.execute(
-            "SELECT rid,created_at,var_names,var_dtypes,var_shapes,var_is_free FROM runs WHERE rid=%(rid)s;",
+            "SELECT rid,created_at,proto FROM runs WHERE rid=%(rid)s;",
             {"rid": rid},
         )
         if len(rows) != 1:
             raise Exception(f"Unexpected number of {len(rows)} results for rid='{rid}'.")
-        kwargs = dict(
-            rid=rows[0][0],
-            variables=[
-                Variable(name, dtype, list(shape), bool(is_free))
-                for name, dtype, shape, is_free in zip(*rows[0][2:])
-            ],
-        )
-        meta = RunMeta(**kwargs)
+        meta = RunMeta().parse(rows[0][2].encode("utf-8"))
         return ClickHouseRun(
             meta, client=self._client, created_at=rows[0][1].replace(tzinfo=timezone.utc)
         )
