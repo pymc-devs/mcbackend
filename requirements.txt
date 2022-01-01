@@ -1,4 +1,4 @@
 betterproto==2.0.0b3
 hagelkorn
-numpy
+numpy<1.22.0
 pandas
