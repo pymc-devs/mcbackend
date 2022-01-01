@@ -2,11 +2,13 @@
 This module implements an adapter to
 """
 import hagelkorn
+import numpy
 import pymc as pm
 
-from mcbackend.meta import Variable
+from mcbackend.meta import Coordinate, Variable
 
 from ..core import Backend, Chain, Run, RunMeta
+from ..npproto.utils import ndarray_from_numpy
 
 
 class TraceBackend(pm.backends.base.BaseTrace):
@@ -48,14 +50,24 @@ class TraceBackend(pm.backends.base.BaseTrace):
         free_rv_names = [rv.name for rv in self.model.free_RVs]
         if not self._run:
             variables = [
-                Variable(name, str(dtype), list(shape), (name in free_rv_names))
-                for name, dtype, shape in zip(
-                    self.varnames, self.var_dtypes.values(), self.var_shapes.values()
+                Variable(
+                    name,
+                    str(self.var_dtypes[name]),
+                    list(self.var_shapes[name]),
+                    (name in free_rv_names),
+                    dims=list(self.model.RV_dims[name]) if name in self.model.RV_dims else None,
                 )
+                for name in self.varnames
+            ]
+            coordinates = [
+                Coordinate(dname, ndarray_from_numpy(numpy.array(cvals)))
+                for dname, cvals in self.model.coords.items()
+                if cvals is not None
             ]
             rmeta = RunMeta(
                 self.run_id,
                 variables=variables,
+                coordinates=coordinates,
             )
             self._run = self._backend.init_run(rmeta)
         self._chain = self._run.init_chain(chain_number=chain)
