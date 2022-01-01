@@ -241,7 +241,7 @@ class ClickHouseBackend(Backend):
         kwargs = dict(
             rid=rows[0][0],
             variables=[
-                Variable(name, dtype, tuple(shape), bool(is_free))
+                Variable(name, dtype, list(shape), bool(is_free))
                 for name, dtype, shape, is_free in zip(*rows[0][2:])
             ],
         )

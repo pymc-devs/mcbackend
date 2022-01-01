@@ -93,9 +93,9 @@ class TestClickHouseBackend(CheckBehavior):
     def test_create_chain_table(self):
         rmeta = make_runmeta(
             variables=[
-                Variable("scalar", "uint16", ()),
-                Variable("1D", "float32", (3,)),
-                Variable("3D", "float64", (2, 5, 6)),
+                Variable("scalar", "uint16", []),
+                Variable("1D", "float32", list((3,))),
+                Variable("3D", "float64", [2, 5, 6]),
             ],
         )
         self.backend.init_run(rmeta)
@@ -118,9 +118,9 @@ class TestClickHouseBackend(CheckBehavior):
             self.backend,
             make_runmeta(
                 variables=[
-                    Variable("v1", "uint16", (), True),
-                    Variable("v2", "float32", (3,), True),
-                    Variable("v3", "float64", (2, 5, 6), True),
+                    Variable("v1", "uint16", [], True),
+                    Variable("v2", "float32", list((3,)), True),
+                    Variable("v3", "float64", [2, 5, 6], True),
                 ],
             ),
         )

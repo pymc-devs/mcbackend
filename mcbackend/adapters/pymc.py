@@ -51,7 +51,7 @@ class TraceBackend(pm.backends.base.BaseTrace):
                 RunMeta(
                     self.run_id,
                     variables=[
-                        Variable(name, str(dtype), shape, (name in free_rv_names))
+                        Variable(name, str(dtype), list(shape), (name in free_rv_names))
                         for name, dtype, shape in zip(
                             self.varnames, self.var_dtypes.values(), self.var_shapes.values()
                         )
