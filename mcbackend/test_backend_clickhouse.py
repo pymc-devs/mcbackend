@@ -100,7 +100,7 @@ class TestClickHouseBackend(CheckBehavior):
         )
         self.backend.init_run(rmeta)
         cmeta = ChainMeta(rmeta.rid, 1)
-        create_chain_table(self._client, cmeta)
+        create_chain_table(self._client, cmeta, rmeta)
         rows, names_and_types = self._client.execute(
             f"SELECT * FROM {chain_id(cmeta)};", with_column_types=True
         )

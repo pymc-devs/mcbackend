@@ -49,28 +49,20 @@ def create_runs_table(client: clickhouse_driver.Client):
     return client.execute(query)
 
 
-def create_chain_table(client: clickhouse_driver.Client, meta: ChainMeta):
+def create_chain_table(client: clickhouse_driver.Client, meta: ChainMeta, rmeta: RunMeta):
     # Check that it does not already exist
     cid = chain_id(meta)
     if client.execute(f"SHOW TABLES LIKE '{cid}';"):
         raise Exception(f"A table for {cid} already exists.")
 
-    # Fetch column metadata from the run
-    rows = client.execute(
-        f"SELECT var_names, var_dtypes, var_shapes FROM runs WHERE rid='{meta.rid}';"
-    )
-    if len(rows) != 1:
-        raise Exception(f"Unexpected number of {len(rows)} rows found for rid {meta.rid}.")
-    var_names, var_dtypes, var_shapes = rows[0]
-
     # Create a table with columns corresponding to the model variables
     columns = []
-    for name, dtype, shape in zip(var_names, var_dtypes, var_shapes):
-        cdt = CLICKHOUSE_DTYPES[dtype]
-        ndim = len(shape)
+    for var in rmeta.variables:
+        cdt = CLICKHOUSE_DTYPES[var.dtype]
+        ndim = len(var.shape)
         for _ in range(ndim):
             cdt = f"Array({cdt})"
-        columns.append(f"`{name}` {cdt}")
+        columns.append(f"`{var.name}` {cdt}")
     columns = ",\n        ".join(columns)
 
     query = f"""
@@ -185,7 +177,7 @@ class ClickHouseRun(Run):
 
     def init_chain(self, chain_number: int) -> ClickHouseChain:
         cmeta = ChainMeta(self.meta.rid, chain_number)
-        create_chain_table(self._client, cmeta)
+        create_chain_table(self._client, cmeta, self.meta)
         return ClickHouseChain(cmeta, self.meta, client=self._client)
 
     def get_chains(self) -> Sequence[ClickHouseChain]:
