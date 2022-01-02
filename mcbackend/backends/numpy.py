@@ -2,7 +2,7 @@
 This backend holds draws in memory, managing them via NumPy arrays.
 """
 import math
-from typing import Dict, Sequence
+from typing import Dict, Optional, Sequence
 
 import numpy
 
@@ -44,7 +44,9 @@ class NumPyChain(Chain):
                 self._samples[var.name] = numpy.repeat(None, preallocate)
         super().__init__(cmeta, rmeta)
 
-    def add_draw(self, draw: Dict[str, numpy.ndarray]):
+    def append(
+        self, draw: Dict[str, numpy.ndarray], stats: Optional[Dict[str, numpy.ndarray]] = None
+    ):
         for vn, v in draw.items():
             target = self._samples[vn]
             length = len(target)
@@ -61,11 +63,17 @@ class NumPyChain(Chain):
         self._draw_idx += 1
         return
 
-    def get_variable(self, var_name: str) -> numpy.ndarray:
+    def get_draws(self, var_name: str) -> numpy.ndarray:
         return self._samples[var_name][: self._draw_idx]
 
-    def get_draw(self, draw_idx: int, var_names: Sequence[str]) -> Dict[str, numpy.ndarray]:
-        return {vn: numpy.asarray(self._samples[vn][draw_idx]) for vn in var_names}
+    def get_draws_at(self, idx: int, var_names: Sequence[str]) -> Dict[str, numpy.ndarray]:
+        return {vn: numpy.asarray(self._samples[vn][idx]) for vn in var_names}
+
+    def get_stats(self, stat_name: str) -> numpy.ndarray:
+        raise NotImplementedError()
+
+    def get_stats_at(self, idx: int, stat_names: Sequence[str]) -> Dict[str, numpy.ndarray]:
+        raise NotImplementedError()
 
 
 class NumPyRun(Run):

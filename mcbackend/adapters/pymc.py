@@ -75,15 +75,15 @@ class TraceBackend(pm.backends.base.BaseTrace):
 
     def record(self, point, sampler_stats=None) -> None:  # pylint: disable=W0613
         draw = dict(zip(self.varnames, self.fn(point)))
-        self._chain.add_draw(draw)
+        self._chain.append(draw, sampler_stats)
         self._draw_idx += 1
         return
 
     def get_values(self, varname, burn=0, thin=1):
-        return self._chain.get_variable(varname)[burn::thin]
+        return self._chain.get_draws(varname)[burn::thin]
 
     def point(self, idx: int):
-        return self._chain.get_draw(idx, self.var_names)
+        return self._chain.get_draws_at(idx, self.var_names)
 
     def _slice(self, idx) -> pm.backends.base.BaseTrace:
         idx = slice(*idx.indices(len(self)))

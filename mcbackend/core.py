@@ -29,24 +29,50 @@ class Chain:
         self._cid = chain_id(cmeta)
         super().__init__()
 
-    def add_draw(self, draw: Dict[str, numpy.ndarray]):
+    def append(
+        self, draw: Dict[str, numpy.ndarray], stats: Optional[Dict[str, numpy.ndarray]] = None
+    ):
+        """Appends an iteration to the chain.
+
+        Parameters
+        ----------
+        draw : dict of ndarray
+            Values for all model variables.
+        stats : dict of ndarray, optional
+            Values of sampler stats in this iteration.
+        """
         raise NotImplementedError()
 
-    def get_variable(self, var_name: str) -> numpy.ndarray:
+    def get_draws(self, var_name: str) -> numpy.ndarray:
         """Retrieve all draws of a variable from an MCMC chain."""
         raise NotImplementedError()
 
-    def get_draw(self, draw_idx: int, var_names: Sequence[str]) -> Dict[str, numpy.ndarray]:
+    def get_stats(self, stat_name: str) -> numpy.ndarray:
+        """Retrieve all values of a sampler statistic."""
+        raise NotImplementedError()
+
+    def get_draws_at(self, idx: int, var_names: Sequence[str]) -> Dict[str, numpy.ndarray]:
         """Retrieve one draw from an MCMC chain."""
+        raise NotImplementedError()
+
+    def get_stats_at(self, idx: int, stat_names: Sequence[str]) -> Dict[str, numpy.ndarray]:
+        """Retrieve the sampler stats corresponding to one draw in the chain."""
         raise NotImplementedError()
 
     @property
     def cid(self) -> str:
+        """An identifier, unique for the combination of Run ID and chain number."""
         return self._cid
 
     @property
     def variables(self) -> Dict[str, Variable]:
+        """Convenience dictionary to access the ``RunMeta.variables``."""
         return {var.name: var for var in self.rmeta.variables}
+
+    @property
+    def sample_stats(self) -> Dict[str, Variable]:
+        """Convenience dictionary to access the ``RunMeta.sample_stats``."""
+        return {var.name: var for var in self.rmeta.sample_stats}
 
 
 class Run:

@@ -1,5 +1,7 @@
 from datetime import datetime, timezone
 
+import pytest
+
 from mcbackend.meta import ChainMeta, RunMeta, Variable
 
 from . import core
@@ -35,8 +37,24 @@ class TestRun:
 
 
 class TestChain:
-    def test_chain_id(self):
-        meta = ChainMeta("testid", 7)
-        chain = core.Chain(meta, RunMeta())
+    def test_chain_properties(self):
+        rmeta = RunMeta(
+            rid="testid",
+            variables=[
+                Variable("v1", "float32", []),
+            ],
+            sample_stats=[
+                Variable("s1", "bool", []),
+            ],
+        )
+        cmeta = ChainMeta(rmeta.rid, 7)
+        chain = core.Chain(cmeta, rmeta)
+
         assert chain.cid == "testid_chain_7"
+
+        assert isinstance(chain.variables, dict)
+        assert chain.variables["v1"] == rmeta.variables[0]
+
+        assert isinstance(chain.sample_stats, dict)
+        assert chain.sample_stats["s1"] == rmeta.sample_stats[0]
         pass

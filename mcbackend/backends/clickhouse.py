@@ -4,7 +4,7 @@ This module implements a backend for sample storage in ClickHouse.
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Dict, Sequence
+from typing import Dict, Optional, Sequence
 
 import clickhouse_driver
 import numpy
@@ -95,7 +95,9 @@ class ClickHouseChain(Chain):
         self._insert_interval = insert_interval
         super().__init__(cmeta, rmeta)
 
-    def add_draw(self, draw: Dict[str, numpy.ndarray]):
+    def append(
+        self, draw: Dict[str, numpy.ndarray], stats: Optional[Dict[str, numpy.ndarray]] = None
+    ):
         params = {"_draw_idx": self._draw_idx, **draw}
         self._draw_idx += 1
         if not self._insert_query:
@@ -120,20 +122,20 @@ class ClickHouseChain(Chain):
         self._commit()
         return
 
-    def get_draw(
+    def get_draws_at(
         self,
-        draw_idx: int,
+        idx: int,
         var_names: Sequence[str],
     ) -> Dict[str, numpy.ndarray]:
         self._commit()
         names = ",".join(var_names)
-        data = self._client.execute(f"SELECT ({names}) FROM {self.cid} WHERE _draw_idx={draw_idx};")
+        data = self._client.execute(f"SELECT ({names}) FROM {self.cid} WHERE _draw_idx={idx};")
         if not data:
-            raise Exception(f"No record found for draw index {draw_idx}.")
+            raise Exception(f"No record found for draw index {idx}.")
         result = dict(zip(var_names, data[0][0]))
         return result
 
-    def get_variable(  # pylint: disable=W0221
+    def get_draws(  # pylint: disable=W0221
         self,
         var_name: int,
         *,
@@ -158,6 +160,12 @@ class ClickHouseChain(Chain):
         for d, (vals,) in enumerate(data):
             buffer[d] = numpy.asarray(vals, var.dtype)
         return buffer
+
+    def get_stats(self, stat_name: str) -> numpy.ndarray:
+        raise NotImplementedError()
+
+    def get_stats_at(self, idx: int, stat_names: Sequence[str]) -> Dict[str, numpy.ndarray]:
+        raise NotImplementedError()
 
 
 class ClickHouseRun(Run):

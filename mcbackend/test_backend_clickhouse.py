@@ -126,7 +126,7 @@ class TestClickHouseBackend(CheckBehavior):
             "v3": numpy.random.uniform(size=(2, 5, 6)).astype("float64"),
         }
         chain = chains[0]
-        chain.add_draw(draw)
+        chain.append(draw)
         assert len(chain._insert_queue) == 1
         chain._commit()
         assert len(chain._insert_queue) == 0

@@ -78,7 +78,7 @@ class App:
         samples = {vn: [] for vn in var_names}
         for vn in var_names:
             for chain in chains:
-                vals = chain.get_variable(vn)
+                vals = chain.get_draws(vn)
                 samples[vn].append(vals)
         # Now cut them to the same length
         max_length = min(len(samples[vn][c]) for vn in var_names for c in range(nchains))

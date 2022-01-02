@@ -90,6 +90,8 @@ class RunMeta(betterproto.Message):
     attributes: Dict[str, "ExtendedValue"] = betterproto.map_field(
         5, betterproto.TYPE_STRING, betterproto.TYPE_MESSAGE
     )
+    # Diagnostic variables produced by MCMC sampling algorithms.
+    sample_stats: List["Variable"] = betterproto.message_field(6)
 
 
 import betterproto.lib.google.protobuf as betterproto_lib_google_protobuf

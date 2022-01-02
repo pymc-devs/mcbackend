@@ -74,4 +74,6 @@ message RunMeta {
     repeated Coordinate coordinates = 4;
     // Arbitrary metadata
     map<string, ExtendedValue> attributes = 5;
+    // Diagnostic variables produced by MCMC sampling algorithms.
+    repeated Variable sample_stats = 6;
 }

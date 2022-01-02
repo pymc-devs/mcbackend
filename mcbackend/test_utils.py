@@ -72,20 +72,20 @@ class CheckBehavior(BaseBackendTest):
         assert isinstance(chain, self.cls_chain)
         pass
 
-    def test__add_get_draw(self):
+    def test__add_get_draws_at(self):
         rmeta = make_runmeta()
         run = self.backend.init_run(rmeta)
         chain = run.init_chain(7)
         expected = make_draw(rmeta.variables)
-        chain.add_draw(expected)
-        actual = chain.get_draw(0, [v.name for v in rmeta.variables])
+        chain.append(expected)
+        actual = chain.get_draws_at(0, [v.name for v in rmeta.variables])
         assert isinstance(actual, dict)
         assert set(actual) == set(expected)
         for vn, act in actual.items():
             numpy.testing.assert_array_equal(act, expected[vn])
         pass
 
-    def test__get_variable(self):
+    def test__get_draws(self):
         rmeta = make_runmeta(flexibility=True)
         run = self.backend.init_run(rmeta)
         chain = run.init_chain(7)
@@ -93,12 +93,12 @@ class CheckBehavior(BaseBackendTest):
         # Generate draws and add them to the chain
         generated = [make_draw(rmeta.variables) for _ in range(10)]
         for draw in generated:
-            chain.add_draw(draw)
+            chain.append(draw)
 
         # Fetch each variable once to check the returned type and values
         for var in rmeta.variables:
             expected = [draw[var.name] for draw in generated]
-            actual = chain.get_variable(var.name)
+            actual = chain.get_draws(var.name)
             assert isinstance(actual, numpy.ndarray)
             if var.name == "changeling":
                 # Non-ridid variables are returned as object-arrays.

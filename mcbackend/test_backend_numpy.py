@@ -70,10 +70,10 @@ class TestNumPyBackend(CheckBehavior):
                 "A": numpy.random.uniform(size=(2,)),
                 "B": numpy.random.uniform(size=(random.randint(0, 10),)),
             }
-            chain.add_draw(draw)
+            chain.append(draw)
         # Growth: 15 → 17 → 19 → 21 → 24
         assert chain._samples["A"].shape == (24, 2)
         assert chain._samples["B"].shape == (24,)
-        assert chain.get_variable("A").shape == (22, 2)
-        assert chain.get_variable("B").shape == (22,)
+        assert chain.get_draws("A").shape == (22, 2)
+        assert chain.get_draws("B").shape == (22,)
         pass
