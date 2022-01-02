@@ -129,6 +129,11 @@ class ClickHouseChain(Chain):
         self._client.execute(self._insert_query, params)
         return
 
+    def __len__(self) -> int:
+        self._commit()
+        result = self._client.execute(f"SELECT count() FROM {self.cid}")
+        return result[0][0]
+
     def __del__(self):
         self._commit()
         return

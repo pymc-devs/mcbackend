@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 
+import numpy
 import pytest
 
 from mcbackend.meta import ChainMeta, RunMeta, Variable
@@ -57,4 +58,21 @@ class TestChain:
 
         assert isinstance(chain.sample_stats, dict)
         assert chain.sample_stats["s1"] == rmeta.sample_stats[0]
+        pass
+
+    def test_chain_length(self):
+        class _TestChain(core.Chain):
+            def get_draws(self, var_name: str):
+                return numpy.arange(12)
+
+            def get_stats(self, stat_name: str):
+                return numpy.arange(42)
+
+        rmeta = RunMeta("test", variables=[Variable("v1")])
+        cmeta = ChainMeta("test", 0)
+        assert len(_TestChain(cmeta, rmeta)) == 12
+
+        rmeta = RunMeta("test", sample_stats=[Variable("s1")])
+        cmeta = ChainMeta("test", 0)
+        assert len(_TestChain(cmeta, rmeta)) == 42
         pass

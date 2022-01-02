@@ -90,7 +90,9 @@ class CheckBehavior(BaseBackendTest):
         stats = make_draw(rmeta.sample_stats) if with_stats else None
 
         # Append to the chain
+        assert len(chain) == 0
         chain.append(draw, stats)
+        assert len(chain) == 1
 
         # Retrieve by index
         actual = chain.get_draws_at(0, [v.name for v in rmeta.variables])

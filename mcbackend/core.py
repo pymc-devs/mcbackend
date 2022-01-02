@@ -1,7 +1,7 @@
 """
 Module with metadata structures and abstract classes.
 """
-from typing import Dict, Optional, Sequence
+from typing import Dict, Optional, Sequence, Sized
 
 import numpy
 
@@ -20,7 +20,7 @@ def chain_id(meta: ChainMeta):
     return f"{meta.rid}_chain_{meta.chain_number}"
 
 
-class Chain:
+class Chain(Sized):
     """A handle on one Markov-chain."""
 
     def __init__(self, cmeta: ChainMeta, rmeta: RunMeta) -> None:
@@ -58,6 +58,20 @@ class Chain:
     def get_stats_at(self, idx: int, stat_names: Sequence[str]) -> Dict[str, numpy.ndarray]:
         """Retrieve the sampler stats corresponding to one draw in the chain."""
         raise NotImplementedError()
+
+    def __len__(self) -> int:
+        """Determine the length of the chain.
+
+        ⚠ The base implementation does this by fetching all values of a variable or sampler stat.
+        ⚠ For higher performance, backends should consider to overwrite the base implementation.
+        """
+        for method, items in [
+            (self.get_draws, self.rmeta.variables),
+            (self.get_stats, self.rmeta.sample_stats),
+        ]:
+            for var in items:
+                return len(method(var.name))
+        raise Exception("This chain has no variables or sample stats.")
 
     @property
     def cid(self) -> str:

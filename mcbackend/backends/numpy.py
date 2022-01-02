@@ -84,6 +84,9 @@ class NumPyChain(Chain):
         self._draw_idx += 1
         return
 
+    def __len__(self) -> int:
+        return self._draw_idx
+
     def get_draws(self, var_name: str) -> numpy.ndarray:
         return self._samples[var_name][: self._draw_idx]
 
