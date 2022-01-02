@@ -1,9 +1,13 @@
 """
-This module implements an adapter to
+This module implements an adapter to use any ``mcbackend.Backend`` as a PyMC ``BaseTrace``.
+
+The only PyMC dependency is on the ``BaseTrace`` abstract base class.
 """
+from typing import Dict, List, Sequence, Tuple
+
 import hagelkorn
 import numpy
-import pymc as pm
+from pymc.backends.base import BaseTrace
 
 from mcbackend.meta import Coordinate, Variable
 
@@ -11,40 +15,89 @@ from ..core import Backend, Chain, Run, RunMeta
 from ..npproto.utils import ndarray_from_numpy
 
 
-class TraceBackend(pm.backends.base.BaseTrace):
+class ReadOnlyTrace(BaseTrace):
+    """An in-memory read-only PyMC trace.
+
+    This class exists to avoid creating a dependency on
+    the PyMC NDArray that this project is trying to replace.
+    """
+
+    supports_sampler_stats = True
+
+    def __init__(
+        self,
+        *,
+        from_trace: BaseTrace,
+        length: int,
+        draws: Dict[str, numpy.ndarray],
+        stats: Sequence[Dict[str, numpy.ndarray]],
+    ):
+        self._length = length
+        self._draws = draws
+        self._stats = stats
+        super().__init__(from_trace.name, from_trace.model, from_trace.vars)
+        self.chain = from_trace.chain
+        self.sampler_vars = from_trace.sampler_vars
+        self.var_shapes = from_trace.var_shapes
+        self.var_dtypes = from_trace.var_dtypes
+        self.varnames = from_trace.varnames
+
+    def __len__(self) -> int:
+        return self._length
+
+    def get_values(self, varname, burn=0, thin=1):
+        return self._draws[varname][burn::thin]
+
+    def _get_sampler_stats(self, stat_name, sampler_idx, burn, thin):
+        if sampler_idx is None:
+            return [sts[stat_name][burn::thin] for sts in self._stats]
+        return self._stats[sampler_idx][stat_name][burn::thin]
+
+    def point(self, idx):
+        return {vn: vals[idx] for vn, vals in self._draws.items()}
+
+    def _slice(self, idx: slice) -> BaseTrace:
+        sliced = ReadOnlyTrace(
+            from_trace=self,
+            length=len(numpy.arange(self._length)[idx]),
+            draws={k: v[idx] for k, v in self._draws.items()},
+            stats=[{k: v[idx] for k, v in sts.items()} for sts in self._stats],
+        )
+        return sliced
+
+
+class TraceBackend(BaseTrace):
     """Adapter to create a PyMC backend from any McBackend."""
 
-    supports_sampler_stats = False
+    supports_sampler_stats = True
 
     def __init__(  # pylint: disable=W0622
         self,
         backend: Backend,
         *,
         name: str = None,
-        model: pm.Model = None,
+        model=None,
         vars=None,
         test_point=None,
     ):
+        self.chain = None
         super().__init__(name, model, vars, test_point)
         self.run_id = hagelkorn.random(digits=6)
         print(f"Backend run id: {self.run_id}")
-        self._backend = backend
-        self._stats = None
+        self._backend: Backend = backend
 
         # Sessions created from the underlying backend
         self._run: Run = None
         self._chain: Chain = None
-
-        # These are needed py the PyMC BaseTrace
-        self.chain: int = None
-        self._draw_idx: int = 0
+        self._stat_groups: List[List[Tuple[str, str]]] = None
+        self._length: int = 0
 
     def __len__(self) -> int:
-        return self._draw_idx
+        return self._length
 
     def setup(self, draws, chain, sampler_vars=None) -> None:
-        self.chain = chain
         super().setup(draws, chain, sampler_vars)
+        self.chain = chain
 
         # Initialize backend sessions
         free_rv_names = [rv.name for rv in self.model.free_RVs]
@@ -59,6 +112,23 @@ class TraceBackend(pm.backends.base.BaseTrace):
                 )
                 for name in self.varnames
             ]
+
+            self._stat_groups = []
+            sample_stats = []
+            if sampler_vars is not None:
+                # In PyMC the sampler stats are grouped by the sampler.
+                # ⚠ PyMC currently does not inform backends about shapes/dims of sampler stats.
+                for s, names_dtypes in enumerate(sampler_vars):
+                    self._stat_groups.append([])
+                    for statname, dtype in names_dtypes.items():
+                        sname = f"sampler_{s}__{statname}"
+                        svar = Variable(
+                            name=sname,
+                            dtype=numpy.dtype(dtype).name,
+                        )
+                        self._stat_groups[s].append((sname, statname))
+                        sample_stats.append(svar)
+
             coordinates = [
                 Coordinate(dname, ndarray_from_numpy(numpy.array(cvals)))
                 for dname, cvals in self.model.coords.items()
@@ -68,42 +138,56 @@ class TraceBackend(pm.backends.base.BaseTrace):
                 self.run_id,
                 variables=variables,
                 coordinates=coordinates,
+                sample_stats=sample_stats,
             )
             self._run = self._backend.init_run(rmeta)
         self._chain = self._run.init_chain(chain_number=chain)
         return
 
-    def record(self, point, sampler_stats=None) -> None:  # pylint: disable=W0613
+    def record(self, point, sampler_states=None):
         draw = dict(zip(self.varnames, self.fn(point)))
-        self._chain.append(draw, sampler_stats)
-        self._draw_idx += 1
+        if sampler_states is None:
+            stats = None
+        else:
+            stats = {}
+            # Unpack the stats by sampler to uniquely named stats.
+            for s, sts in enumerate(sampler_states):
+                for statname, sval in sts.items():
+                    sname = f"sampler_{s}__{statname}"
+                    stats[sname] = sval
+
+        self._chain.append(draw, stats)
+        self._length += 1
         return
 
-    def get_values(self, varname, burn=0, thin=1):
+    def get_values(self, varname, burn=0, thin=1) -> numpy.ndarray:
         return self._chain.get_draws(varname)[burn::thin]
+
+    def _get_stats(self, varname, burn=0, thin=1) -> numpy.ndarray:
+        return self._chain.get_stats(varname)[burn::thin]
+
+    def _get_sampler_stats(self, stat_name, sampler_idx, burn, thin):
+        return self._get_stats(f"sampler_{sampler_idx}__{stat_name}", burn, thin)
 
     def point(self, idx: int):
         return self._chain.get_draws_at(idx, self.var_names)
 
-    def _slice(self, idx) -> pm.backends.base.BaseTrace:
-        idx = slice(*idx.indices(len(self)))
+    def as_readonly(self) -> ReadOnlyTrace:
+        """Creates a PyMC trace object from this chain."""
+        # Re-organize draws and stats in the PyMC style
+        draws = {varname: self.get_values(varname) for varname in self.varnames}
+        stats = [
+            {statname: self._get_stats(sname) for sname, statname in namemap}
+            for namemap in self._stat_groups
+        ]
 
-        sliced = pm.backends.NDArray(model=self.model, vars=self.vars)
-        sliced.chain = self.chain
-        sliced.samples = {varname: self.get_values(varname)[idx] for varname in self.varnames}
-        sliced.sampler_vars = self.sampler_vars
-        sliced.draw_idx = (idx.stop - idx.start) // idx.step  # pylint: disable=W0212
+        rotrace = ReadOnlyTrace(
+            from_trace=self,
+            length=len(self),
+            draws=draws,
+            stats=stats,
+        )
+        return rotrace
 
-        if self._stats is None:
-            return sliced
-        sliced._stats = []  # pylint: disable=W0212
-        for svars in self._stats:  # pylint: disable=E1133
-            var_sliced = {}
-            sliced._stats.append(var_sliced)  # pylint: disable=W0212
-            for key, vals in svars.items():
-                var_sliced[key] = vals[idx]
-
-        return sliced
-
-    def close(self):  # pylint: disable=R0201
-        return
+    def _slice(self, idx) -> ReadOnlyTrace:
+        return self.as_readonly()[idx]
