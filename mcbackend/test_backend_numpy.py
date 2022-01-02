@@ -20,9 +20,9 @@ class TestNumPyBackend(CheckBehavior):
         rm = RunMeta(
             rid=hagelkorn.random(),
             variables=[
-                Variable("tensor", "int8", (3, 4, 5), True),
-                Variable("scalar", "float64", (), False),
-                Variable("changeling", "uint16", (3, 0), True),
+                Variable("tensor", "int8", (3, 4, 5)),
+                Variable("scalar", "float64", ()),
+                Variable("changeling", "uint16", (3, 0)),
             ],
         )
         run = imb.init_run(rm)
@@ -53,13 +53,11 @@ class TestNumPyBackend(CheckBehavior):
                     "A",
                     "float32",
                     (2,),
-                    True,
                 ),
                 Variable(
                     "B",
                     "float32",
                     (0,),
-                    True,
                 ),
             ],
         )

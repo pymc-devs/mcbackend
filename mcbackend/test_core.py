@@ -19,8 +19,8 @@ def test_meta_equals():
         name="bla",
         dtype="float32",
         shape=[1, 2],
-        is_free=True,
         dims=["a", "b"],
+        is_deterministic=True,
     )
     assert Variable(**kwargs) == Variable(**kwargs)
     assert ChainMeta("ABC", 0) == ChainMeta("ABC", 0)

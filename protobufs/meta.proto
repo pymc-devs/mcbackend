@@ -25,10 +25,10 @@ message Variable {
     // May contain 0es for dynamically sized dimensions.
     // Leave None when the dimensionality is also dynamic.
     repeated uint64 shape = 3;
-    // Is this variable a free parameter, or a deterministic model output?
-    bool is_free = 4;
     // Names of variable dimensions.
-    repeated string dims = 5;
+    repeated string dims = 4;
+    // Could this variable be computed deterministically from other variables?
+    bool is_deterministic = 5;
 }
 
 // A named array that labels a dimension.

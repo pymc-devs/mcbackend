@@ -54,8 +54,8 @@ class TraceBackend(pm.backends.base.BaseTrace):
                     name,
                     str(self.var_dtypes[name]),
                     list(self.var_shapes[name]),
-                    (name in free_rv_names),
                     dims=list(self.model.RV_dims[name]) if name in self.model.RV_dims else None,
+                    is_deterministic=(name not in free_rv_names),
                 )
                 for name in self.varnames
             ]

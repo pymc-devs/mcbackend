@@ -114,9 +114,9 @@ class TestClickHouseBackend(CheckBehavior):
             self.backend,
             make_runmeta(
                 variables=[
-                    Variable("v1", "uint16", [], True),
-                    Variable("v2", "float32", list((3,)), True),
-                    Variable("v3", "float64", [2, 5, 6], True),
+                    Variable("v1", "uint16", []),
+                    Variable("v2", "float32", list((3,))),
+                    Variable("v3", "float64", [2, 5, 6]),
                 ],
             ),
         )

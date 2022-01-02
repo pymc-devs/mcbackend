@@ -13,12 +13,14 @@ def make_runmeta(*, flexibility: bool = False, **kwargs) -> RunMeta:
     defaults = dict(
         rid=hagelkorn.random(),
         variables=[
-            Variable("tensor", "int8", [3, 4, 5], True),
-            Variable("scalar", "float64", [], False),
+            Variable("tensor", "int8", [3, 4, 5], dims=["a", "b", "c"], is_deterministic=True),
+            Variable("scalar", "float64", [], dims=[], is_deterministic=False),
         ],
     )
     if flexibility:
-        defaults["variables"].append(Variable("changeling", "uint16", [3, 0], True))
+        defaults["variables"].append(
+            Variable("changeling", "uint16", [3, 0], dims=["a", "d"], is_deterministic=True)
+        )
     defaults.update(kwargs)
     return RunMeta(**defaults)
 

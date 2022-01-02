@@ -97,4 +97,8 @@ class TestPyMCAdapter:
         assert (
             tuple(ndarray_to_numpy(coords["condition"].values)) == simple_model.coords["condition"]
         )
+
+        # Meta-information which variables are free vs. deterministic
+        assert not vars["vector"].is_deterministic
+        assert vars["matrix"].is_deterministic
         pass

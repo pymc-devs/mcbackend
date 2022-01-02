@@ -30,10 +30,10 @@ class Variable(betterproto.Message):
     # The shape tuple. May contain 0es for dynamically sized dimensions. Leave
     # None when the dimensionality is also dynamic.
     shape: List[int] = betterproto.uint64_field(3)
-    # Is this variable a free parameter, or a deterministic model output?
-    is_free: bool = betterproto.bool_field(4)
     # Names of variable dimensions.
-    dims: List[str] = betterproto.string_field(5)
+    dims: List[str] = betterproto.string_field(4)
+    # Could this variable be computed deterministically from other variables?
+    is_deterministic: bool = betterproto.bool_field(5)
 
 
 @dataclass(eq=False, repr=False)

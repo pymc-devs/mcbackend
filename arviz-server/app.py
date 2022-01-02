@@ -59,8 +59,8 @@ class App:
     def refresh_idata(self, run: ClickHouseRun, chains: Sequence[ClickHouseChain]):
         t_start = time.time()
         nchains = len(chains)
-        var_names = [var.name for var in run.meta.variables if var.is_free]
-        var_shapes = [var.shape for var in run.meta.variables if var.is_free]
+        var_names = [var.name for var in run.meta.variables if not var.is_deterministic]
+        var_shapes = [var.shape for var in run.meta.variables if not var.is_deterministic]
 
         # Prepare dims and coords from run metadata
         dims = {}
