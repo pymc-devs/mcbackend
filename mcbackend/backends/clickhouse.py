@@ -10,7 +10,7 @@ import clickhouse_driver
 import numpy
 import pandas
 
-from mcbackend.meta import ChainMeta, RunMeta
+from mcbackend.meta import ChainMeta, RunMeta, Variable
 
 from ..core import Backend, Chain, Run, chain_id, is_rigid
 
@@ -28,6 +28,7 @@ CLICKHOUSE_DTYPES = {
     "int64": "Int64",
     "float32": "Float32",
     "float64": "Float64",
+    "bool": "UInt8",
 }
 
 
@@ -46,6 +47,16 @@ def create_runs_table(client: clickhouse_driver.Client):
     return client.execute(query)
 
 
+def column_spec_for(var: Variable, is_stat: bool = False):
+    cdt = CLICKHOUSE_DTYPES[var.dtype]
+    ndim = len(var.shape)
+    for _ in range(ndim):
+        cdt = f"Array({cdt})"
+    if not is_stat:
+        return f"`{var.name}` {cdt}"
+    return f"`__stat_{var.name}` {cdt}"
+
+
 def create_chain_table(client: clickhouse_driver.Client, meta: ChainMeta, rmeta: RunMeta):
     # Check that it does not already exist
     cid = chain_id(meta)
@@ -55,12 +66,11 @@ def create_chain_table(client: clickhouse_driver.Client, meta: ChainMeta, rmeta:
     # Create a table with columns corresponding to the model variables
     columns = []
     for var in rmeta.variables:
-        cdt = CLICKHOUSE_DTYPES[var.dtype]
-        ndim = len(var.shape)
-        for _ in range(ndim):
-            cdt = f"Array({cdt})"
-        columns.append(f"`{var.name}` {cdt}")
-    columns = ",\n        ".join(columns)
+        columns.append(column_spec_for(var))
+    for var in rmeta.sample_stats:
+        columns.append(column_spec_for(var, is_stat=True))
+    assert len(set(columns)) == len(columns), columns
+    columns = ",\n            ".join(columns)
 
     query = f"""
         CREATE TABLE {cid}
@@ -98,7 +108,8 @@ class ClickHouseChain(Chain):
     def append(
         self, draw: Dict[str, numpy.ndarray], stats: Optional[Dict[str, numpy.ndarray]] = None
     ):
-        params = {"_draw_idx": self._draw_idx, **draw}
+        stat = {f"__stat_{sname}": svals for sname, svals in (stats or {}).items()}
+        params = {"_draw_idx": self._draw_idx, **draw, **stat}
         self._draw_idx += 1
         if not self._insert_query:
             names = ", ".join(params.keys())
@@ -122,7 +133,7 @@ class ClickHouseChain(Chain):
         self._commit()
         return
 
-    def get_draws_at(
+    def _get_row_at(
         self,
         idx: int,
         var_names: Sequence[str],
@@ -135,14 +146,15 @@ class ClickHouseChain(Chain):
         result = dict(zip(var_names, data[0][0]))
         return result
 
-    def get_draws(  # pylint: disable=W0221
+    def _get_rows(  # pylint: disable=W0221
         self,
-        var_name: int,
+        var_name: str,
+        shape: Optional[Sequence[int]],
+        dtype: str,
         *,
         burn: int = 0,
     ) -> numpy.ndarray:
         self._commit()
-        var = self.variables[var_name]
         data = self._client.execute(
             f"SELECT (`{var_name}`) FROM {self.cid} WHERE _draw_idx>={burn};"
         )
@@ -153,19 +165,28 @@ class ClickHouseChain(Chain):
             raise Exception(f"No draws in chain {self.cid}.")
 
         # The unpacking must also account for non-rigid shapes
-        if is_rigid(var.shape):
-            buffer = numpy.empty((draws, *var.shape), var.dtype)
+        if is_rigid(shape):
+            buffer = numpy.empty((draws, *shape), dtype)
         else:
             buffer = numpy.repeat(None, draws)
         for d, (vals,) in enumerate(data):
-            buffer[d] = numpy.asarray(vals, var.dtype)
+            buffer[d] = numpy.asarray(vals, dtype)
         return buffer
 
+    def get_draws(self, var_name: str) -> numpy.ndarray:
+        var = self.variables[var_name]
+        return self._get_rows(var_name, var.shape, var.dtype)
+
+    def get_draws_at(self, idx: int, var_names: Sequence[str]) -> Dict[str, numpy.ndarray]:
+        return self._get_row_at(idx, var_names)
+
     def get_stats(self, stat_name: str) -> numpy.ndarray:
-        raise NotImplementedError()
+        var = self.sample_stats[stat_name]
+        return self._get_rows(f"__stat_{stat_name}", var.shape, var.dtype)
 
     def get_stats_at(self, idx: int, stat_names: Sequence[str]) -> Dict[str, numpy.ndarray]:
-        raise NotImplementedError()
+        stats = self._get_row_at(idx, [f"__stat_{sname}" for sname in stat_names])
+        return {sname[7:]: vals for sname, vals in stats.items()}
 
 
 class ClickHouseRun(Run):

@@ -28,9 +28,9 @@ class TestNumPyBackend(CheckBehavior):
         run = imb.init_run(rm)
         chain = run.init_chain(0)
         # Shape flexibility detection
-        assert chain._is_rigid["tensor"]
-        assert chain._is_rigid["scalar"]
-        assert not chain._is_rigid["changeling"]
+        assert chain._var_is_rigid["tensor"]
+        assert chain._var_is_rigid["scalar"]
+        assert not chain._var_is_rigid["changeling"]
         # Types of targets
         assert isinstance(chain._samples["tensor"], numpy.ndarray)
         assert isinstance(chain._samples["scalar"], numpy.ndarray)

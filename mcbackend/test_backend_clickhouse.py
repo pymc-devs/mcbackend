@@ -93,6 +93,9 @@ class TestClickHouseBackend(CheckBehavior):
                 Variable("1D", "float32", list((3,))),
                 Variable("3D", "float64", [2, 5, 6]),
             ],
+            sample_stats=[
+                Variable("accepted", "bool", []),
+            ],
         )
         self.backend.init_run(rmeta)
         cmeta = ChainMeta(rmeta.rid, 1)
@@ -106,6 +109,7 @@ class TestClickHouseBackend(CheckBehavior):
             ("scalar", "UInt16"),
             ("1D", "Array(Float32)"),
             ("3D", "Array(Array(Array(Float64)))"),
+            ("__stat_accepted", "UInt8"),
         ]
         pass
 

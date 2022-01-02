@@ -10,6 +10,29 @@ from ..core import Backend, Chain, Run, is_rigid
 from ..meta import ChainMeta, RunMeta
 
 
+def grow_append(
+    storage_dict: Dict[str, numpy.ndarray],
+    values: Dict[str, numpy.ndarray],
+    rigid: Dict[str, bool],
+    draw_idx: int,
+):
+    """Writes values into storage arrays, growing them if needed."""
+    for vn, v in values.items():
+        target = storage_dict[vn]
+        length = len(target)
+        if length == draw_idx:
+            # Grow the array by 10 %
+            ngrow = math.ceil(0.1 * length)
+            if rigid[vn]:
+                extension = numpy.empty((ngrow,) + numpy.shape(v))
+            else:
+                extension = numpy.repeat(None, ngrow)
+            storage_dict[vn] = numpy.concatenate((target, extension), axis=0)
+            target = storage_dict[vn]
+        target[draw_idx] = v
+    return
+
+
 class NumPyChain(Chain):
     """Stores value draws in NumPy arrays and can pre-allocate memory."""
 
@@ -30,36 +53,34 @@ class NumPyChain(Chain):
             where the correct amount of memory cannot be pre-allocated.
             In these cases, and when ``preallocate == 0`` object arrays are used.
         """
-        self._is_rigid = {}
+        self._var_is_rigid = {}
         self._samples = {}
+        self._stat_is_rigid = {}
+        self._stats = {}
         self._draw_idx = 0
-        # Create storage ndarrays for each variable.
-        for var in rmeta.variables:
-            rigid = is_rigid(var.shape)
-            self._is_rigid[var.name] = rigid
-            if preallocate > 0 and rigid:
-                reserve = (preallocate, *var.shape)
-                self._samples[var.name] = numpy.empty(reserve, var.dtype)
-            else:
-                self._samples[var.name] = numpy.repeat(None, preallocate)
+
+        # Create storage ndarrays for each model variable and sampler stat.
+        for target_dict, rigid_dict, variables in [
+            (self._samples, self._var_is_rigid, rmeta.variables),
+            (self._stats, self._stat_is_rigid, rmeta.sample_stats),
+        ]:
+            for var in variables:
+                rigid = is_rigid(var.shape)
+                rigid_dict[var.name] = rigid
+                if preallocate > 0 and rigid:
+                    reserve = (preallocate, *var.shape)
+                    target_dict[var.name] = numpy.empty(reserve, var.dtype)
+                else:
+                    target_dict[var.name] = numpy.repeat(None, preallocate)
+
         super().__init__(cmeta, rmeta)
 
     def append(
         self, draw: Dict[str, numpy.ndarray], stats: Optional[Dict[str, numpy.ndarray]] = None
     ):
-        for vn, v in draw.items():
-            target = self._samples[vn]
-            length = len(target)
-            if length == self._draw_idx:
-                # Grow the array by 10 %
-                ngrow = math.ceil(0.1 * length)
-                if self._is_rigid[vn]:
-                    extension = numpy.empty((ngrow,) + numpy.shape(v))
-                else:
-                    extension = numpy.repeat(None, ngrow)
-                self._samples[vn] = numpy.concatenate((target, extension), axis=0)
-                target = self._samples[vn]
-            target[self._draw_idx] = v
+        grow_append(self._samples, draw, self._var_is_rigid, self._draw_idx)
+        if stats:
+            grow_append(self._stats, stats, self._stat_is_rigid, self._draw_idx)
         self._draw_idx += 1
         return
 
@@ -70,10 +91,10 @@ class NumPyChain(Chain):
         return {vn: numpy.asarray(self._samples[vn][idx]) for vn in var_names}
 
     def get_stats(self, stat_name: str) -> numpy.ndarray:
-        raise NotImplementedError()
+        return self._stats[stat_name][: self._draw_idx]
 
     def get_stats_at(self, idx: int, stat_names: Sequence[str]) -> Dict[str, numpy.ndarray]:
-        raise NotImplementedError()
+        return {sn: numpy.asarray(self._stats[sn][idx]) for sn in stat_names}
 
 
 class NumPyRun(Run):

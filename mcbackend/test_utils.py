@@ -3,10 +3,11 @@ from typing import Sequence
 
 import hagelkorn
 import numpy
+import pytest
 
 from mcbackend.meta import ChainMeta, RunMeta, Variable
 
-from .core import Backend, Chain, Run
+from .core import Backend, Chain, Run, is_rigid
 
 
 def make_runmeta(*, flexibility: bool = False, **kwargs) -> RunMeta:
@@ -15,6 +16,12 @@ def make_runmeta(*, flexibility: bool = False, **kwargs) -> RunMeta:
         variables=[
             Variable("tensor", "int8", [3, 4, 5], dims=["a", "b", "c"], is_deterministic=True),
             Variable("scalar", "float64", [], dims=[], is_deterministic=False),
+        ],
+        sample_stats=[
+            # Compound/blocked stepping may emit stats for each sampler.
+            Variable("accepted", "bool", list((3,)), dims=["sampler"]),
+            # But some stats may refer to the iteration.
+            Variable("logp", "float64", []),
         ],
     )
     if flexibility:
@@ -72,32 +79,54 @@ class CheckBehavior(BaseBackendTest):
         assert isinstance(chain, self.cls_chain)
         pass
 
-    def test__add_get_draws_at(self):
+    @pytest.mark.parametrize("with_stats", [False, True])
+    def test__append_get_at(self, with_stats):
         rmeta = make_runmeta()
         run = self.backend.init_run(rmeta)
         chain = run.init_chain(7)
-        expected = make_draw(rmeta.variables)
-        chain.append(expected)
+
+        # Generate data
+        draw = make_draw(rmeta.variables)
+        stats = make_draw(rmeta.sample_stats) if with_stats else None
+
+        # Append to the chain
+        chain.append(draw, stats)
+
+        # Retrieve by index
         actual = chain.get_draws_at(0, [v.name for v in rmeta.variables])
         assert isinstance(actual, dict)
-        assert set(actual) == set(expected)
+        assert set(actual) == set(draw)
         for vn, act in actual.items():
-            numpy.testing.assert_array_equal(act, expected[vn])
+            numpy.testing.assert_array_equal(act, draw[vn])
+
+        if with_stats:
+            actual = chain.get_stats_at(0, [v.name for v in rmeta.sample_stats])
+            assert isinstance(actual, dict)
+            assert set(actual) == set(stats)
+            for vn, act in actual.items():
+                numpy.testing.assert_array_equal(act, stats[vn])
         pass
 
-    def test__get_draws(self):
+    @pytest.mark.parametrize("with_stats", [False, True])
+    def test__append_get_with_changelings(self, with_stats):
         rmeta = make_runmeta(flexibility=True)
         run = self.backend.init_run(rmeta)
         chain = run.init_chain(7)
 
         # Generate draws and add them to the chain
-        generated = [make_draw(rmeta.variables) for _ in range(10)]
-        for draw in generated:
-            chain.append(draw)
+        n = 10
+        draws = [make_draw(rmeta.variables) for _ in range(n)]
+        if with_stats:
+            stats = [make_draw(rmeta.sample_stats) for _ in range(n)]
+        else:
+            stats = [None] * n
+
+        for d, s in zip(draws, stats):
+            chain.append(d, s)
 
         # Fetch each variable once to check the returned type and values
         for var in rmeta.variables:
-            expected = [draw[var.name] for draw in generated]
+            expected = [draw[var.name] for draw in draws]
             actual = chain.get_draws(var.name)
             assert isinstance(actual, numpy.ndarray)
             if var.name == "changeling":
@@ -111,6 +140,23 @@ class CheckBehavior(BaseBackendTest):
                 assert tuple(actual.shape) == tuple(numpy.shape(expected))
                 assert actual.dtype == var.dtype
                 numpy.testing.assert_array_equal(actual, expected)
+
+        if with_stats:
+            for var in rmeta.sample_stats:
+                expected = [stat[var.name] for stat in stats]
+                actual = chain.get_stats(var.name)
+                assert isinstance(actual, numpy.ndarray)
+                if is_rigid(var.shape):
+                    assert tuple(actual.shape) == tuple(numpy.shape(expected))
+                    assert actual.dtype == var.dtype
+                    numpy.testing.assert_array_equal(actual, expected)
+                else:
+                    # Non-ridid variables are returned as object-arrays.
+                    assert actual.shape == (len(expected),)
+                    assert actual.dtype == object
+                    # Their values must be asserted elementwise to avoid shape problems.
+                    for act, exp in zip(actual, expected):
+                        numpy.testing.assert_array_equal(act, exp)
         pass
 
 
