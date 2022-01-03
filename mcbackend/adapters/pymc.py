@@ -125,6 +125,8 @@ class TraceBackend(BaseTrace):
                         svar = Variable(
                             name=sname,
                             dtype=numpy.dtype(dtype).name,
+                            # This 👇 is needed until PyMC provides shapes ahead of time.
+                            undefined_ndim=True,
                         )
                         self._stat_groups[s].append((sname, statname))
                         sample_stats.append(svar)

@@ -65,7 +65,7 @@ class NumPyChain(Chain):
             (self._stats, self._stat_is_rigid, rmeta.sample_stats),
         ]:
             for var in variables:
-                rigid = is_rigid(var.shape)
+                rigid = is_rigid(var.shape) and not var.undefined_ndim
                 rigid_dict[var.name] = rigid
                 if preallocate > 0 and rigid:
                     reserve = (preallocate, *var.shape)

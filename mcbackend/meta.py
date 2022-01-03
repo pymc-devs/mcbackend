@@ -27,13 +27,20 @@ class Variable(betterproto.Message):
     name: str = betterproto.string_field(1)
     # Data type (lowercase).
     dtype: str = betterproto.string_field(2)
-    # The shape tuple. May contain 0es for dynamically sized dimensions. Leave
-    # None when the dimensionality is also dynamic.
+    # The shape tuple. May contain 0es for dynamically sized dimensions. The
+    # default value, an empty sequence, corresponds to scalar shape. Note that
+    # for variables of dynamic dimensionality, ``undefined_ndim=True``  can be
+    # set to render ``shape`` and ``dims`` meaningless.
     shape: List[int] = betterproto.uint64_field(3)
-    # Names of variable dimensions.
+    # Names of the variable's dimensions. The default value, an empty sequence,
+    # corresponds to undefined dimension names and applies to scalar variables,
+    # and variables where ``undefined_ndim=True``.
     dims: List[str] = betterproto.string_field(4)
     # Could this variable be computed deterministically from other variables?
     is_deterministic: bool = betterproto.bool_field(5)
+    # Set to ``True`` when the dimensionality of this variable is undefined,
+    # rendering ``shape`` meaningless.
+    undefined_ndim: bool = betterproto.bool_field(6)
 
 
 @dataclass(eq=False, repr=False)

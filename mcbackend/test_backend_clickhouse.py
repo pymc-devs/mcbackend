@@ -1,3 +1,4 @@
+import logging
 from typing import Sequence, Tuple
 
 import clickhouse_driver
@@ -111,6 +112,18 @@ class TestClickHouseBackend(CheckBehavior):
             ("3D", "Array(Array(Array(Float64)))"),
             ("__stat_accepted", "UInt8"),
         ]
+        pass
+
+    def test_create_chain_table_with_undefined_ndim(self, caplog):
+        rmeta = make_runmeta(variables=[Variable("v1", "uint8", undefined_ndim=True)])
+        with pytest.raises(NotImplementedError, match="Dimensionality of variable 'v1'"):
+            create_chain_table(self._client, ChainMeta(rmeta.rid, 0), rmeta)
+
+        rmeta = make_runmeta(sample_stats=[Variable("s1", "bool", undefined_ndim=True)])
+        with caplog.at_level(logging.WARNING):
+            create_chain_table(self._client, ChainMeta(rmeta.rid, 0), rmeta)
+        assert "Dimensionality of sample stat 's1'" in caplog.records[0].message
+        assert "Assuming ndim=0" in caplog.records[0].message
         pass
 
     def test_insert_draw(self):

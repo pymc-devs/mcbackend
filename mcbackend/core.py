@@ -10,10 +10,21 @@ from .meta import ChainMeta, RunMeta, Variable
 Shape = Sequence[int]
 
 
-def is_rigid(shape: Optional[Shape]):
-    if shape is None:
+def is_rigid(nshape: Optional[Shape]):
+    """Determines wheather the shape is constant.
+
+    Parameters
+    ----------
+    nshape : array-like, optional
+        This "nullable shape" is interpreted as follows:
+        - ``[]`` indicates scalar shape (rigid: True).
+        - ``[2, 3]`` indicates a matrix with 2 rows and 3 columns (rigid: True).
+        - ``[2, 0]`` indicates a matrix with 2 rows and dynamic number of columns (rigid: False).
+        - ``None`` indicates dynamic dimensionality (rigid: False).
+    """
+    if nshape is None or any(s == 0 for s in nshape):
         return False
-    return all(s != 0 for s in shape)
+    return True
 
 
 def chain_id(meta: ChainMeta):

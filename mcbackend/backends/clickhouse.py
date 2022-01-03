@@ -66,8 +66,17 @@ def create_chain_table(client: clickhouse_driver.Client, meta: ChainMeta, rmeta:
     # Create a table with columns corresponding to the model variables
     columns = []
     for var in rmeta.variables:
+        if var.undefined_ndim:
+            raise NotImplementedError(
+                f"Dimensionality of variable '{var.name}' is undefined."
+                " This is not supported by the ClickHouseBackend."
+            )
         columns.append(column_spec_for(var))
     for var in rmeta.sample_stats:
+        if var.undefined_ndim:
+            _log.warning(
+                "Dimensionality of sample stat '%s' is undefined. Assuming ndim=0.", var.name
+            )
         columns.append(column_spec_for(var, is_stat=True))
     assert len(set(columns)) == len(columns), columns
     columns = ",\n            ".join(columns)
@@ -154,7 +163,7 @@ class ClickHouseChain(Chain):
     def _get_rows(  # pylint: disable=W0221
         self,
         var_name: str,
-        shape: Optional[Sequence[int]],
+        nshape: Optional[Sequence[int]],
         dtype: str,
         *,
         burn: int = 0,
@@ -170,8 +179,8 @@ class ClickHouseChain(Chain):
             raise Exception(f"No draws in chain {self.cid}.")
 
         # The unpacking must also account for non-rigid shapes
-        if is_rigid(shape):
-            buffer = numpy.empty((draws, *shape), dtype)
+        if is_rigid(nshape):
+            buffer = numpy.empty((draws, *nshape), dtype)
         else:
             buffer = numpy.repeat(None, draws)
         for d, (vals,) in enumerate(data):
@@ -180,14 +189,16 @@ class ClickHouseChain(Chain):
 
     def get_draws(self, var_name: str) -> numpy.ndarray:
         var = self.variables[var_name]
-        return self._get_rows(var_name, var.shape, var.dtype)
+        nshape = var.shape if not var.undefined_ndim else None
+        return self._get_rows(var_name, nshape, var.dtype)
 
     def get_draws_at(self, idx: int, var_names: Sequence[str]) -> Dict[str, numpy.ndarray]:
         return self._get_row_at(idx, var_names)
 
     def get_stats(self, stat_name: str) -> numpy.ndarray:
         var = self.sample_stats[stat_name]
-        return self._get_rows(f"__stat_{stat_name}", var.shape, var.dtype)
+        nshape = var.shape if not var.undefined_ndim else None
+        return self._get_rows(f"__stat_{stat_name}", nshape, var.dtype)
 
     def get_stats_at(self, idx: int, stat_names: Sequence[str]) -> Dict[str, numpy.ndarray]:
         stats = self._get_row_at(idx, [f"__stat_{sname}" for sname in stat_names])
