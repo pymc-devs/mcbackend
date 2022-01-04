@@ -110,6 +110,9 @@ class Run:
     def init_chain(self, chain_number: int) -> Chain:
         raise NotImplementedError()
 
+    def get_chains(self) -> Sequence[Chain]:
+        raise NotImplementedError()
+
 
 class Backend:
     """Base class for all MCMC draw storage backends."""

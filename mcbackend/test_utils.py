@@ -56,7 +56,7 @@ class BaseBackendTest:
 
     def setup_method(self, method):
         """Override this when the backend has no parameterless constructor."""
-        self.backend = self.cls_backend()
+        self.backend: Backend = self.cls_backend()
 
     def teardown_method(self, method):
         pass
@@ -159,6 +159,24 @@ class CheckBehavior(BaseBackendTest):
                     # Their values must be asserted elementwise to avoid shape problems.
                     for act, exp in zip(actual, expected):
                         numpy.testing.assert_array_equal(act, exp)
+        pass
+
+    def test__get_chains(self):
+        rmeta = make_runmeta()
+        run = self.backend.init_run(rmeta)
+        for c in range(3):
+            chain = run.init_chain(c)
+            assert isinstance(chain, Chain)
+            # Insert 1 draw, so we can check lengths of chains returned later
+            chain.append(make_draw(rmeta.variables))
+
+        chains = run.get_chains()
+        assert len(chains) == 3
+        for c, chain in enumerate(chains):
+            assert isinstance(chain, Chain)
+            assert chain.cmeta.chain_number == c
+            assert chain.rmeta == run.meta
+            assert len(chain) == 1
         pass
 
 

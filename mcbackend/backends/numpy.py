@@ -2,7 +2,7 @@
 This backend holds draws in memory, managing them via NumPy arrays.
 """
 import math
-from typing import Dict, Optional, Sequence
+from typing import Dict, Optional, Sequence, Tuple
 
 import numpy
 
@@ -105,11 +105,17 @@ class NumPyRun(Run):
 
     def __init__(self, meta: RunMeta, *, preallocate: int) -> None:
         self._settings = dict(preallocate=preallocate)
+        self._chains = []
         super().__init__(meta)
 
     def init_chain(self, chain_number: int) -> NumPyChain:
         cmeta = ChainMeta(self.meta.rid, chain_number)
-        return NumPyChain(cmeta, self.meta, **self._settings)
+        chain = NumPyChain(cmeta, self.meta, **self._settings)
+        self._chains.append(chain)
+        return chain
+
+    def get_chains(self) -> Tuple[Chain]:
+        return tuple(self._chains)
 
 
 class NumPyBackend(Backend):

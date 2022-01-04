@@ -4,7 +4,7 @@ This module implements a backend for sample storage in ClickHouse.
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Dict, Optional, Sequence
+from typing import Dict, Optional, Sequence, Tuple
 
 import clickhouse_driver
 import numpy
@@ -215,19 +215,32 @@ class ClickHouseRun(Run):
         if created_at is None:
             created_at = datetime.now().astimezone(timezone.utc)
         self.created_at = created_at
+        # We need handles on the chains to commit their batched inserts
+        # before returning them to callers of `.get_chains()`.
+        self._chains = None
         super().__init__(meta)
 
     def init_chain(self, chain_number: int) -> ClickHouseChain:
         cmeta = ChainMeta(self.meta.rid, chain_number)
         create_chain_table(self._client, cmeta, self.meta)
-        return ClickHouseChain(cmeta, self.meta, client=self._client)
+        chain = ClickHouseChain(cmeta, self.meta, client=self._client)
+        if self._chains is None:
+            self._chains = []
+        self._chains.append(chain)
+        return chain
 
-    def get_chains(self) -> Sequence[ClickHouseChain]:
+    def get_chains(self) -> Tuple[ClickHouseChain]:
+        # Preferably return existing handles on chains that might have
+        # uncommitted inserts pending.
+        if self._chains:
+            return self._chains
+
+        # Otherwise fetch existing chains from the DB.
         chains = []
         for (cid,) in self._client.execute(f"SHOW TABLES LIKE '{self.meta.rid}%'"):
             cm = ChainMeta(self.meta.rid, int(cid.split("_")[-1]))
             chains.append(ClickHouseChain(cm, self.meta, client=self._client))
-        return chains
+        return tuple(chains)
 
 
 class ClickHouseBackend(Backend):
