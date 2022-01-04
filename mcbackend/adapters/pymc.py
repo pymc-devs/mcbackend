@@ -114,7 +114,9 @@ class TraceBackend(BaseTrace):
             ]
 
             self._stat_groups = []
-            sample_stats = []
+            sample_stats = [
+                Variable("tune", "bool"),
+            ]
             if sampler_vars is not None:
                 # In PyMC the sampler stats are grouped by the sampler.
                 # ⚠ PyMC currently does not inform backends about shapes/dims of sampler stats.
@@ -151,12 +153,17 @@ class TraceBackend(BaseTrace):
         if sampler_states is None:
             stats = None
         else:
-            stats = {}
+            stats = {
+                "tune": False,
+            }
             # Unpack the stats by sampler to uniquely named stats.
             for s, sts in enumerate(sampler_states):
                 for statname, sval in sts.items():
                     sname = f"sampler_{s}__{statname}"
                     stats[sname] = sval
+                    # Make not whether this is a tuning iteration.
+                    if statname == "tune":
+                        stats["tune"] = sval
 
         self._chain.append(draw, stats)
         self._length += 1
