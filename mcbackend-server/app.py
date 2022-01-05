@@ -20,9 +20,9 @@ ACTIONS = {
 
 class App:
     def __init__(self) -> None:
-        st.title("Welcome to ArviZ Server")
+        st.title("Welcome to McBackend Server")
 
-        client = clickhouse_driver.Client(os.getenv("ARVIZ_DB_HOST", "localhost"))
+        client = clickhouse_driver.Client(os.getenv("DB_HOST", "localhost"))
         self.backend = mcbackend.ClickHouseBackend(client)
         self.df_runs = self.backend.get_runs()
         st.write(f"✔ ClickHouse connection established. {len(self.df_runs)} runs found.")
