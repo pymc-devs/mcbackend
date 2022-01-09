@@ -6,7 +6,8 @@ import hagelkorn
 import numpy
 import pytest
 
-from mcbackend.meta import ChainMeta, RunMeta, Variable
+from mcbackend.meta import ChainMeta, DataVariable, RunMeta, Variable
+from mcbackend.npproto import utils
 
 from .core import Backend, Chain, Run, is_rigid
 
@@ -23,6 +24,17 @@ def make_runmeta(*, flexibility: bool = False, **kwargs) -> RunMeta:
             Variable("accepted", "bool", list((3,)), dims=["sampler"]),
             # But some stats may refer to the iteration.
             Variable("logp", "float64", []),
+        ],
+        data=[
+            DataVariable(
+                "seconds", utils.ndarray_from_numpy(numpy.array([0, 0.5, 1.5])), dims=["time"]
+            ),
+            DataVariable(
+                "coinflips",
+                utils.ndarray_from_numpy(numpy.array([[0, 1, 0], [1, 1, 0]])),
+                dims=["coin", "flip"],
+                is_observed=True,
+            ),
         ],
     )
     if flexibility:
@@ -200,10 +212,6 @@ class CheckBehavior(BaseBackendTest):
             chain.append(d, s)
 
         idata = run.to_inferencedata()
-        if "ClickHouse" in str(self.cls_backend):
-            print("------------draws----------------")
-            print(self.backend._client.execute(f"SELECT * FROM {chain.cid};"))
-            print("----------------------------")
         assert isinstance(idata, arviz.InferenceData)
         assert idata.warmup_posterior.dims["chain"] == 1
         assert idata.warmup_posterior.dims["draw"] == 4
@@ -213,6 +221,20 @@ class CheckBehavior(BaseBackendTest):
             assert var.name in set(idata.posterior.keys())
         for svar in rmeta.sample_stats:
             assert svar.name in set(idata.sample_stats.keys())
+        # Data variables
+        assert hasattr(idata, "constant_data")
+        assert hasattr(idata, "observed_data")
+        for dv in rmeta.data:
+            if dv.is_observed:
+                group = idata.observed_data
+            else:
+                group = idata.constant_data
+            assert hasattr(group, dv.name)
+            assert tuple(dv.dims) == tuple(group[dv.name].dims)
+            numpy.testing.assert_array_equal(
+                group[dv.name].values,
+                utils.ndarray_to_numpy(dv.value),
+            )
         pass
 
 

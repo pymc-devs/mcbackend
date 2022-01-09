@@ -45,6 +45,18 @@ message Coordinate {
     npproto.ndarray values = 2;
 }
 
+// Constant or observed data in the model.
+message DataVariable {
+    // Name of the data variable.
+    string name = 1;
+    // The array containing the data.
+    npproto.ndarray value = 2;
+    // Names of the dimensions.
+    repeated string dims = 3;
+    // Is the posterior conditional on this data?
+    bool is_observed = 4;
+}
+
 // Like google.protobuf.Value, but with support for additional types.
 message ExtendedValue {
     // The kind of value.
@@ -82,4 +94,6 @@ message RunMeta {
     map<string, ExtendedValue> attributes = 5;
     // Diagnostic variables produced by MCMC sampling algorithms.
     repeated Variable sample_stats = 6;
+    // Constant or observed data in the model.
+    repeated DataVariable data = 7;
 }

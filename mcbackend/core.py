@@ -128,11 +128,22 @@ class Run:
 
     @property
     def dims(self) -> Dict[str, Sequence[str]]:
-        return {
-            var.name: var.dims
-            for var in self.meta.variables
-            if len(var.dims) == len(var.shape) and not var.undefined_ndim
-        }
+        dims = {}
+        for var in self.meta.variables:
+            if len(var.dims) == len(var.shape) and not var.undefined_ndim:
+                dims[var.name] = var.dims
+        for dvar in self.meta.data:
+            if len(dvar.dims) > 0:
+                dims[dvar.name] = dvar.dims
+        return dims
+
+    @property
+    def constant_data(self) -> Dict[str, numpy.ndarray]:
+        return {dv.name: ndarray_to_numpy(dv.value) for dv in self.meta.data if not dv.is_observed}
+
+    @property
+    def observed_data(self) -> Dict[str, numpy.ndarray]:
+        return {dv.name: ndarray_to_numpy(dv.value) for dv in self.meta.data if dv.is_observed}
 
     def to_inferencedata(self, **kwargs) -> InferenceData:
         """Creates an ArviZ ``InferenceData`` object from this run.
@@ -200,6 +211,8 @@ class Run:
             coords=self.coords,
             dims=self.dims,
             attrs=self.meta.attributes,
+            constant_data=self.constant_data,
+            observed_data=self.observed_data,
             **kwargs,
         )
         return idata

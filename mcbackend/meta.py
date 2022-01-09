@@ -29,8 +29,8 @@ class Variable(betterproto.Message):
     dtype: str = betterproto.string_field(2)
     # The shape tuple. May contain 0es for dynamically sized dimensions. The
     # default value, an empty sequence, corresponds to scalar shape. Note that
-    # for variables of dynamic dimensionality, ``undefined_ndim=True``  can be
-    # set to render ``shape`` and ``dims`` meaningless.
+    # for variables of dynamic dimensionality, ``undefined_ndim=True`` can be set
+    # to render ``shape`` and ``dims`` meaningless.
     shape: List[int] = betterproto.uint64_field(3)
     # Names of the variable's dimensions. The default value, an empty sequence,
     # corresponds to undefined dimension names and applies to scalar variables,
@@ -51,6 +51,20 @@ class Coordinate(betterproto.Message):
     name: str = betterproto.string_field(1)
     # Coordinate values.
     values: "npproto.Ndarray" = betterproto.message_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class DataVariable(betterproto.Message):
+    """Constant or observed data in the model."""
+
+    # Name of the data variable.
+    name: str = betterproto.string_field(1)
+    # The array containing the data.
+    value: "npproto.Ndarray" = betterproto.message_field(2)
+    # Names of the dimensions.
+    dims: List[str] = betterproto.string_field(3)
+    # Is the posterior conditional on this data?
+    is_observed: bool = betterproto.bool_field(4)
 
 
 @dataclass(eq=False, repr=False)
@@ -99,6 +113,8 @@ class RunMeta(betterproto.Message):
     )
     # Diagnostic variables produced by MCMC sampling algorithms.
     sample_stats: List["Variable"] = betterproto.message_field(6)
+    # Constant or observed data in the model.
+    data: List["DataVariable"] = betterproto.message_field(7)
 
 
 import betterproto.lib.google.protobuf as betterproto_lib_google_protobuf
