@@ -7,12 +7,36 @@ from typing import Dict, List, Sequence, Tuple
 
 import hagelkorn
 import numpy
+from aesara.graph.basic import Constant
+from aesara.tensor.sharedvar import SharedVariable
 from pymc.backends.base import BaseTrace
+from pymc.model import Model
 
-from mcbackend.meta import Coordinate, Variable
+from mcbackend.meta import Coordinate, DataVariable, Variable
 
 from ..core import Backend, Chain, Run, RunMeta
 from ..npproto.utils import ndarray_from_numpy
+
+
+def find_data(pmodel: Model) -> List[DataVariable]:
+    """Extracts data variables from a model."""
+    observed_rvs = {
+        rv.tag.observations for rv in pmodel.observed_RVs if hasattr(rv.tag, "observations")
+    }
+    dvars = []
+    # All data containers are named vars!
+    for name, var in pmodel.named_vars.items():
+        dv = DataVariable(name)
+        if isinstance(var, Constant):
+            dv.value = ndarray_from_numpy(var.data)
+        elif isinstance(var, SharedVariable):
+            dv.value = ndarray_from_numpy(var.get_value())
+        else:
+            continue
+        dv.dims = list(pmodel.RV_dims.get(name, []))
+        dv.is_observed = var in observed_rvs
+        dvars.append(dv)
+    return dvars
 
 
 class ReadOnlyTrace(BaseTrace):
@@ -138,11 +162,13 @@ class TraceBackend(BaseTrace):
                 for dname, cvals in self.model.coords.items()
                 if cvals is not None
             ]
+
             rmeta = RunMeta(
                 self.run_id,
                 variables=variables,
                 coordinates=coordinates,
                 sample_stats=sample_stats,
+                data=find_data(self.model),
             )
             self._run = self._backend.init_run(rmeta)
         self._chain = self._run.init_chain(chain_number=chain)
