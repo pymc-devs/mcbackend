@@ -1,11 +1,15 @@
 import random
+import time
+from dataclasses import dataclass
 from typing import Sequence
 
 import arviz
 import hagelkorn
 import numpy
+import pandas
 import pytest
 
+import mcbackend
 from mcbackend.meta import ChainMeta, DataVariable, RunMeta, Variable
 from mcbackend.npproto import utils
 
@@ -238,14 +242,115 @@ class CheckBehavior(BaseBackendTest):
         pass
 
 
-class CheckPerformance(BaseBackendTest):
+@dataclass
+class AppendSpeed:
+    draws_per_second: float
+    bytes_per_draw: float
+
+    @property
+    def mib_per_second(self) -> float:
+        return self.draws_per_second * self.bytes_per_draw / 1024 / 1024
+
+    def __str__(self):
+        return f"{self.mib_per_second:.1f} MiB/s ({self.draws_per_second:.1f} draws/s)"
+
+
+def run_chain(run: Run, chain_number: int = 0, tmax: float = 10) -> AppendSpeed:
+    """Append with max speed to one chain for `tmax` seconds."""
+    draw = make_draw(run.meta.variables)
+    bytes_per_draw = sum(v.size * v.itemsize for v in draw.values())
+
+    chain = run.init_chain(chain_number)
+    t_start = time.time()
+    d = 0
+    last_update = t_start
+    while time.time() - t_start < tmax:
+        chain.append(draw)
+        d += 1
+        now = time.time()
+        if now - last_update > 1:
+            print(f"Inserted {d} draws")
+            last_update = now
+
+    assert len(chain) == d
+    t_end = time.time()
+    dps = d / (t_end - t_start)
+    return AppendSpeed(dps, bytes_per_draw)
+
+
+class BackendBenchmark:
+    """A collection of backend benchmarking methods."""
+
+    backend: mcbackend.Backend
+
+    def run_all_benchmarks(self) -> pandas.DataFrame:
+        """Runs each benchmark method and summarizes the results in a DataFrame."""
+        df = pandas.DataFrame(
+            columns=["title", "bytes_per_draw", "append_speed", "description"]
+        ).set_index("title")
+        for attr in dir(BackendBenchmark):
+            meth = getattr(self, attr, None)
+            if callable(meth) and meth.__name__.startswith("measure_"):
+                try:
+                    self.setup_method(meth)
+                except TypeError:
+                    pass
+                print(f"Running {meth.__name__}")
+                speed = meth()
+                df.loc[meth.__name__[8:], ["bytes_per_draw", "append_speed", "description"]] = (
+                    speed.bytes_per_draw,
+                    str(speed),
+                    meth.__doc__,
+                )
+        return df
+
+    def measure_many_draws(self) -> AppendSpeed:
+        """One chain of (), (3,) and (5,2) float32 variables."""
+        rmeta = RunMeta(
+            rid=hagelkorn.random(),
+            variables=[
+                Variable("v1", "float32", []),
+                Variable("v2", "float32", list((3,))),
+                Variable("v3", "float32", [5, 2]),
+            ],
+        )
+        return run_chain(self.backend.init_run(rmeta))
+
+    def measure_many_variables(self) -> AppendSpeed:
+        """One chain with 300 variables of shapes (), (3,) and (5,2)."""
+        rmeta = RunMeta(
+            rid=hagelkorn.random(),
+            variables=[Variable(f"v{v}", "float32", [5, 2][: v % 2]) for v in range(300)],
+        )
+        return run_chain(self.backend.init_run(rmeta))
+
+    def measure_big_variables(self) -> AppendSpeed:
+        """One chain with 3 variables of shapes (100,), (1000,) and (100, 100)."""
+        rmeta = RunMeta(
+            rid=hagelkorn.random(),
+            variables=[
+                Variable("v1", "float32", list((100,))),
+                Variable("v2", "float32", list((1000,))),
+                Variable("v3", "float32", list((100, 100))),
+            ],
+        )
+        return run_chain(self.backend.init_run(rmeta))
+
+
+class CheckPerformance(BaseBackendTest, BackendBenchmark):
     """Checks that the backend is reasonably fast via various high-load tests."""
 
     def test__many_draws(self):
+        speed = self.measure_many_draws()
+        assert speed.draws_per_second > 5000 or speed.mib_per_second > 1
         pass
 
     def test__many_variables(self):
+        speed = self.measure_many_variables()
+        assert speed.draws_per_second > 500 or speed.mib_per_second > 5
         pass
 
     def test__big_variables(self):
+        speed = self.measure_big_variables()
+        assert speed.draws_per_second > 500 or speed.mib_per_second > 5
         pass

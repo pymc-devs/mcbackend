@@ -3,14 +3,13 @@ import random
 import hagelkorn
 import numpy
 
+from mcbackend.backends.numpy import NumPyBackend, NumPyChain, NumPyRun
+from mcbackend.core import RunMeta
 from mcbackend.meta import Variable
-
-from .backends.numpy import NumPyBackend, NumPyChain, NumPyRun
-from .core import RunMeta
-from .test_utils import CheckBehavior
+from mcbackend.test_utils import CheckBehavior, CheckPerformance
 
 
-class TestNumPyBackend(CheckBehavior):
+class TestNumPyBackend(CheckBehavior, CheckPerformance):
     cls_backend = NumPyBackend
     cls_run = NumPyRun
     cls_chain = NumPyChain
@@ -77,3 +76,9 @@ class TestNumPyBackend(CheckBehavior):
         assert chain.get_draws("A").shape == (22, 2)
         assert chain.get_draws("B").shape == (22,)
         pass
+
+
+if __name__ == "__main__":
+    tc = TestNumPyBackend()
+    df = tc.run_all_benchmarks()
+    print(df)

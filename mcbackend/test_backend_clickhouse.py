@@ -7,17 +7,16 @@ import numpy
 import pandas
 import pytest
 
-from mcbackend.meta import ChainMeta, RunMeta, Variable
-
-from .backends.clickhouse import (
+from mcbackend.backends.clickhouse import (
     ClickHouseBackend,
     ClickHouseChain,
     ClickHouseRun,
     create_chain_table,
     create_runs_table,
 )
-from .core import Chain, Run, chain_id
-from .test_utils import CheckBehavior, make_runmeta
+from mcbackend.core import Chain, Run, chain_id
+from mcbackend.meta import ChainMeta, RunMeta, Variable
+from mcbackend.test_utils import CheckBehavior, CheckPerformance, make_runmeta
 
 try:
     client = clickhouse_driver.Client("localhost")
@@ -42,7 +41,7 @@ def fully_initialized(
     condition=not HAS_REAL_DB,
     reason="Integration tests need a ClickHouse server on localhost:9000 without authentication.",
 )
-class TestClickHouseBackend(CheckBehavior):
+class TestClickHouseBackend(CheckBehavior, CheckPerformance):
     cls_backend = ClickHouseBackend
     cls_run = ClickHouseRun
     cls_chain = ClickHouseChain
@@ -155,3 +154,9 @@ class TestClickHouseBackend(CheckBehavior):
         numpy.testing.assert_array_equal(v2, draw["v2"])
         numpy.testing.assert_array_equal(v3, draw["v3"])
         pass
+
+
+if __name__ == "__main__":
+    tc = TestClickHouseBackend()
+    df = tc.run_all_benchmarks()
+    print(df)
