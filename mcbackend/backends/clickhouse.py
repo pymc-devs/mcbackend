@@ -1,6 +1,7 @@
 """
 This module implements a backend for sample storage in ClickHouse.
 """
+import base64
 import logging
 import time
 from datetime import datetime, timezone
@@ -262,7 +263,7 @@ class ClickHouseBackend(Backend):
             params = dict(
                 created_at=created_at,
                 rid=meta.rid,
-                proto=bytes(meta).decode("utf-8"),
+                proto=base64.encodebytes(bytes(meta)).decode("ascii"),
             )
             self._client.execute(query, [params])
         return ClickHouseRun(meta, client=self._client, created_at=created_at)
@@ -274,7 +275,9 @@ class ClickHouseBackend(Backend):
         if df.empty:
             df["created_at,rid,proto".split(",")] = None
         df["created_at"] = [ca.replace(tzinfo=timezone.utc) for ca in df["created_at"]]
-        df["proto"] = [RunMeta().parse(proto.encode("utf-8")) for proto in df.proto]
+        df["proto"] = [
+            RunMeta().parse(base64.decodebytes(proto.encode("ascii"))) for proto in df.proto
+        ]
         return df.set_index("rid")
 
     def get_run(self, rid: str) -> ClickHouseRun:
@@ -284,7 +287,8 @@ class ClickHouseBackend(Backend):
         )
         if len(rows) != 1:
             raise Exception(f"Unexpected number of {len(rows)} results for rid='{rid}'.")
-        meta = RunMeta().parse(rows[0][2].encode("utf-8"))
+        data = base64.decodebytes(rows[0][2].encode("ascii"))
+        meta = RunMeta().parse(data)
         return ClickHouseRun(
             meta, client=self._client, created_at=rows[0][1].replace(tzinfo=timezone.utc)
         )
