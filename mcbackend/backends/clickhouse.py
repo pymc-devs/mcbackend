@@ -103,6 +103,7 @@ class ClickHouseChain(Chain):
         *,
         client: clickhouse_driver.Client,
         insert_interval: int = 1,
+        insert_every: int = 500,
         draw_idx: int = 0,
     ):
         self._draw_idx = draw_idx
@@ -113,6 +114,7 @@ class ClickHouseChain(Chain):
         self._insert_queue = []
         self._last_insert = time.time()
         self._insert_interval = insert_interval
+        self._insert_every = insert_every
         super().__init__(cmeta, rmeta)
 
     def append(
@@ -126,7 +128,10 @@ class ClickHouseChain(Chain):
             self._insert_query = f"INSERT INTO {self.cid} ({names}) VALUES"
         self._insert_queue.append(params)
 
-        if time.time() - self._last_insert > self._insert_interval:
+        if (
+            len(self._insert_queue) >= self._insert_every
+            or time.time() - self._last_insert > self._insert_interval
+        ):
             self._commit()
         return
 
