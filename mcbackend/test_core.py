@@ -4,6 +4,7 @@ import numpy
 import pytest
 
 from mcbackend.meta import ChainMeta, RunMeta, Variable
+from mcbackend.test_utils import make_runmeta
 
 from . import core
 
@@ -34,7 +35,16 @@ def test_meta_equals():
 
 
 class TestRun:
-    pass
+    def test_run_properties(self):
+        rmeta = make_runmeta()
+        run = core.Run(rmeta)
+        assert isinstance(run.constant_data, dict)
+        assert isinstance(run.observed_data, dict)
+        assert "seconds" in run.constant_data
+        assert run.dims.get("seconds", None) == ["time"]
+        assert "coinflips" in run.observed_data
+        assert run.dims.get("coinflips", None) == ["coin", "flip"]
+        pass
 
 
 class TestChain:
