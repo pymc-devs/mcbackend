@@ -1,3 +1,6 @@
+[![pipeline](https://github.com/michaelosthege/mcbackend/workflows/pipeline/badge.svg)](https://github.com/michaelosthege/mcbackend/actions)
+[![coverage](https://codecov.io/gh/michaelosthege/mcbackend/branch/main/graph/badge.svg)](https://codecov.io/gh/michaelosthege/mcbackend)
+
 Where do _you_ want to store your MCMC draws?
 In memory?
 On disk?
@@ -87,6 +90,8 @@ print(idata)
 # >>> Inference data with groups:
 # >>> 	> posterior
 # >>> 	> sample_stats
+# >>> 	> observed_data
+# >>> 	> constant_data
 # >>>
 # >>> Warmup iterations saved (warmup_*).
 ```
