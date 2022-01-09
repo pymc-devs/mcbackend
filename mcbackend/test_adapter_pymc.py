@@ -9,7 +9,7 @@ import pytest
 from mcbackend.meta import RunMeta
 from mcbackend.npproto.utils import ndarray_to_numpy
 
-from .adapters.pymc import TraceBackend
+from .adapters.pymc import TraceBackend, find_data
 from .backends.clickhouse import ClickHouseBackend
 from .test_backend_clickhouse import HAS_REAL_DB
 
@@ -18,17 +18,35 @@ _log = logging.getLogger(__file__)
 
 @pytest.fixture
 def simple_model():
+    seconds = numpy.linspace(0, 5)
+    observations = numpy.random.normal(
+        0.5 + numpy.random.uniform(size=3)[:, None] * seconds[None, :]
+    )
     with pm.Model(
         coords={
             "condition": ["A", "B", "C"],
         }
     ) as pmodel:
-        time = pm.Data("time", numpy.arange(5), dims="time")
+        x = pm.Data("seconds", seconds, dims="time")
         a = pm.Normal("scalar")
         b = pm.Uniform("vector", dims="condition")
-        pm.Deterministic("matrix", a + b[:, None] * time[None, :], dims=("condition", "time"))
+        pm.Deterministic("matrix", a + b[:, None] * x[None, :], dims=("condition", "time"))
         pm.Bernoulli("integer", p=0.5)
+        obs = pm.Data("obs", observations, dims=("condition", "time"))
+        pm.Normal("L", pmodel["matrix"], observed=obs, dims=("condition", "time"))
     return pmodel
+
+
+def test_find_data(simple_model):
+    dvars = find_data(simple_model)
+    dvars = {dv.name: dv for dv in dvars}
+    assert "seconds" in dvars
+    assert dvars["seconds"].dims == ["time"]
+    assert not dvars["seconds"].is_observed
+    assert "obs" in dvars
+    assert dvars["obs"].dims == ["condition", "time"]
+    assert dvars["obs"].is_observed
+    pass
 
 
 @pytest.mark.skipif(
@@ -101,4 +119,23 @@ class TestPyMCAdapter:
         # Meta-information which variables are free vs. deterministic
         assert not vars["vector"].is_deterministic
         assert vars["matrix"].is_deterministic
+
+        # Data variables should be included in the RunMeta
+        datavars = {dv.name: dv for dv in rmeta.data}
+        # Constant data variables
+        assert "seconds" in datavars
+        seconds = datavars["seconds"]
+        assert tuple(seconds.dims) == ("time",)
+        assert not seconds.is_observed
+        numpy.testing.assert_array_equal(
+            ndarray_to_numpy(seconds.value), simple_model["seconds"].get_value()
+        )
+        # Observed data variables
+        assert "obs" in datavars
+        obs = datavars["obs"]
+        assert tuple(obs.dims) == ("condition", "time")
+        assert obs.is_observed
+        numpy.testing.assert_array_equal(
+            ndarray_to_numpy(obs.value), simple_model["obs"].get_value()
+        )
         pass
