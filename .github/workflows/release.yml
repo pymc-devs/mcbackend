@@ -1,0 +1,44 @@
+name: release-pipeline
+
+on:
+  release:
+    types:
+      - created
+
+
+jobs:
+  release-job:
+    runs-on: ubuntu-latest
+    env:
+      PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.9
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+    - name: Test with pytest
+      run: |
+        pytest --cov=./mcbackend --cov-report term-missing mcbackend/
+    - name: Build package
+      run: |
+        python setup.py sdist bdist_wheel
+    - name: Check version number match
+      run: |
+        echo "GITHUB_REF: ${GITHUB_REF}"
+        # Make sure the package version is the same as the tag
+        grep -Rq "^Version: ${GITHUB_REF:11}$" mcbackend.egg-info/PKG-INFO
+    - name: Publish to PyPI
+      run: |
+        twine check dist/*
+        twine upload --repository pypi --username __token__ --password ${PYPI_TOKEN} dist/*
+    - name: Test installation
+      run: |
+        sleep 120
+        pip install mcbackend==${GITHUB_REF:11}

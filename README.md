@@ -1,3 +1,4 @@
+[![PyPI version](https://img.shields.io/pypi/v/mcbackend)](https://pypi.org/project/mcbackend)
 [![pipeline](https://github.com/michaelosthege/mcbackend/workflows/pipeline/badge.svg)](https://github.com/michaelosthege/mcbackend/actions)
 [![coverage](https://codecov.io/gh/michaelosthege/mcbackend/branch/main/graph/badge.svg)](https://codecov.io/gh/michaelosthege/mcbackend)
 
