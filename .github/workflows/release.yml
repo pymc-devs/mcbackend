@@ -9,6 +9,11 @@ on:
 jobs:
   release-job:
     runs-on: ubuntu-latest
+    services:
+      clickhouse:
+        image: yandex/clickhouse-server
+        ports:
+          - 9000:9000
     env:
       PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
     steps:
