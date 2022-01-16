@@ -1,4 +1,5 @@
 import logging
+from subprocess import call
 from typing import Sequence, Tuple
 
 import clickhouse_driver
@@ -41,6 +42,63 @@ def fully_initialized(
     condition=not HAS_REAL_DB,
     reason="Integration tests need a ClickHouse server on localhost:9000 without authentication.",
 )
+class TestClickHouseBackendInitialization:
+    """This is separate because ``TestClickHouseBackend.setup_method`` depends on these things."""
+
+    def test_exceptions(self):
+        with pytest.raises(ValueError, match="must be provided"):
+            ClickHouseBackend()
+        pass
+
+    def test_backend_from_client_object(self):
+        db = "testing_" + hagelkorn.random()
+        _client_main = clickhouse_driver.Client("localhost")
+        _client_main.execute(f"CREATE DATABASE {db};")
+
+        try:
+            # When created from a client object, all chains share the client
+            backend = ClickHouseBackend(client=clickhouse_driver.Client("localhost", database=db))
+            assert callable(backend._client_fn)
+            run = backend.init_run(make_runmeta())
+            c1 = run.init_chain(0)
+            c2 = run.init_chain(1)
+            assert c1._client is c2._client
+        finally:
+            _client_main.execute(f"DROP DATABASE {db};")
+            _client_main.disconnect()
+        pass
+
+    def test_backend_from_client_function(self):
+        db = "testing_" + hagelkorn.random()
+        _client_main = clickhouse_driver.Client("localhost")
+        _client_main.execute(f"CREATE DATABASE {db};")
+
+        def client_fn():
+            return clickhouse_driver.Client("localhost", database=db)
+
+        try:
+            # When created from a client function, each chain has its own client
+            backend = ClickHouseBackend(client_fn=client_fn)
+            assert backend._client is not None
+            run = backend.init_run(make_runmeta())
+            c1 = run.init_chain(0)
+            c2 = run.init_chain(1)
+            assert c1._client is not c2._client
+
+            # By passing both, one may use different settings
+            bclient = client_fn()
+            backend = ClickHouseBackend(client=bclient, client_fn=client_fn)
+            assert backend._client is bclient
+        finally:
+            _client_main.execute(f"DROP DATABASE {db};")
+            _client_main.disconnect()
+        pass
+
+
+@pytest.mark.skipif(
+    condition=not HAS_REAL_DB,
+    reason="Integration tests need a ClickHouse server on localhost:9000 without authentication.",
+)
 class TestClickHouseBackend(CheckBehavior, CheckPerformance):
     cls_backend = ClickHouseBackend
     cls_run = ClickHouseRun
@@ -52,7 +110,9 @@ class TestClickHouseBackend(CheckBehavior, CheckPerformance):
         self._client_main = clickhouse_driver.Client("localhost")
         self._client_main.execute(f"CREATE DATABASE {self._db};")
         self._client = clickhouse_driver.Client("localhost", database=self._db)
-        self.backend = ClickHouseBackend(self._client)
+        self.backend = ClickHouseBackend(
+            client_fn=lambda: clickhouse_driver.Client("localhost", database=self._db)
+        )
         return
 
     def teardown_method(self, method):

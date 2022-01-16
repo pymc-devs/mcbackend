@@ -5,7 +5,7 @@ import base64
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Dict, Optional, Sequence, Tuple
+from typing import Callable, Dict, Optional, Sequence, Tuple
 
 import clickhouse_driver
 import numpy
@@ -215,9 +215,14 @@ class ClickHouseRun(Run):
     """Represents an MCMC run stored in ClickHouse."""
 
     def __init__(
-        self, meta: RunMeta, *, created_at: datetime = None, client: clickhouse_driver.Client
+        self,
+        meta: RunMeta,
+        *,
+        created_at: datetime = None,
+        client_fn: Callable[[], clickhouse_driver.Client],
     ) -> None:
-        self._client = client
+        self._client_fn = client_fn
+        self._client = client_fn()
         if created_at is None:
             created_at = datetime.now().astimezone(timezone.utc)
         self.created_at = created_at
@@ -229,7 +234,7 @@ class ClickHouseRun(Run):
     def init_chain(self, chain_number: int) -> ClickHouseChain:
         cmeta = ChainMeta(self.meta.rid, chain_number)
         create_chain_table(self._client, cmeta, self.meta)
-        chain = ClickHouseChain(cmeta, self.meta, client=self._client)
+        chain = ClickHouseChain(cmeta, self.meta, client=self._client_fn())
         if self._chains is None:
             self._chains = []
         self._chains.append(chain)
@@ -245,16 +250,39 @@ class ClickHouseRun(Run):
         chains = []
         for (cid,) in self._client.execute(f"SHOW TABLES LIKE '{self.meta.rid}%'"):
             cm = ChainMeta(self.meta.rid, int(cid.split("_")[-1]))
-            chains.append(ClickHouseChain(cm, self.meta, client=self._client))
+            chains.append(ClickHouseChain(cm, self.meta, client=self._client_fn()))
         return tuple(chains)
 
 
 class ClickHouseBackend(Backend):
     """A backend to store samples in a ClickHouse database."""
 
-    def __init__(self, client: clickhouse_driver.Client) -> None:
+    def __init__(
+        self,
+        client: clickhouse_driver.Client = None,
+        client_fn: Callable[[], clickhouse_driver.Client] = None,
+    ):
+        """Create a ClickHouse backend around a database client.
+
+        Parameters
+        ----------
+        client : clickhouse_driver.Client
+            One client to use for all runs and chains.
+        client_fn : callable
+            A function to create database clients.
+            Use this in multithreading scenarios to get higher insert performance.
+        """
+        if client is None and client_fn is None:
+            raise ValueError("Either a `client` or a `client_fn` must be provided.")
+        self._client_fn = client_fn
         self._client = client
-        create_runs_table(client)
+
+        if client_fn is None:
+            self._client_fn = lambda: client
+        if client is None:
+            self._client = self._client_fn()
+
+        create_runs_table(self._client)
         super().__init__()
 
     def init_run(self, meta: RunMeta) -> ClickHouseRun:
@@ -271,7 +299,7 @@ class ClickHouseBackend(Backend):
                 proto=base64.encodebytes(bytes(meta)).decode("ascii"),
             )
             self._client.execute(query, [params])
-        return ClickHouseRun(meta, client=self._client, created_at=created_at)
+        return ClickHouseRun(meta, client_fn=self._client_fn, created_at=created_at)
 
     def get_runs(self) -> pandas.DataFrame:
         df = self._client.query_dataframe(
@@ -295,5 +323,5 @@ class ClickHouseBackend(Backend):
         data = base64.decodebytes(rows[0][2].encode("ascii"))
         meta = RunMeta().parse(data)
         return ClickHouseRun(
-            meta, client=self._client, created_at=rows[0][1].replace(tzinfo=timezone.utc)
+            meta, client_fn=self._client_fn, created_at=rows[0][1].replace(tzinfo=timezone.utc)
         )
