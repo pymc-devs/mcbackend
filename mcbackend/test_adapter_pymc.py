@@ -27,12 +27,12 @@ def simple_model():
             "condition": ["A", "B", "C"],
         }
     ) as pmodel:
-        x = pm.Data("seconds", seconds, dims="time")
+        x = pm.ConstantData("seconds", seconds, dims="time")
         a = pm.Normal("scalar")
         b = pm.Uniform("vector", dims="condition")
         pm.Deterministic("matrix", a + b[:, None] * x[None, :], dims=("condition", "time"))
         pm.Bernoulli("integer", p=0.5)
-        obs = pm.Data("obs", observations, dims=("condition", "time"))
+        obs = pm.MutableData("obs", observations, dims=("condition", "time"))
         pm.Normal("L", pmodel["matrix"], observed=obs, dims=("condition", "time"))
     return pmodel
 
@@ -128,7 +128,7 @@ class TestPyMCAdapter:
         assert tuple(seconds.dims) == ("time",)
         assert not seconds.is_observed
         numpy.testing.assert_array_equal(
-            ndarray_to_numpy(seconds.value), simple_model["seconds"].get_value()
+            ndarray_to_numpy(seconds.value), simple_model["seconds"].data
         )
         # Observed data variables
         assert "obs" in datavars

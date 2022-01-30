@@ -1,5 +1,6 @@
+import base64
 import logging
-from subprocess import call
+from datetime import datetime, timezone
 from typing import Sequence, Tuple
 
 import clickhouse_driver
@@ -13,9 +14,8 @@ from mcbackend.backends.clickhouse import (
     ClickHouseChain,
     ClickHouseRun,
     create_chain_table,
-    create_runs_table,
 )
-from mcbackend.core import Chain, Run, chain_id
+from mcbackend.core import Run, chain_id
 from mcbackend.meta import ChainMeta, RunMeta, Variable
 from mcbackend.test_utils import CheckBehavior, CheckPerformance, make_runmeta
 
@@ -137,6 +137,19 @@ class TestClickHouseBackend(CheckBehavior, CheckPerformance):
         assert isinstance(runs, pandas.DataFrame)
         assert runs.index.name == "rid"
         assert "my_first_run" in runs.index.values
+
+        # Illegaly create a duplicate entry
+        created_at = datetime.now().astimezone(timezone.utc)
+        query = "INSERT INTO runs (created_at, rid, proto) VALUES"
+        params = dict(
+            created_at=created_at,
+            rid=meta.rid,
+            proto=base64.encodebytes(bytes(meta)).decode("ascii"),
+        )
+        self._client.execute(query, [params])
+        assert len(self._client.execute("SELECT * FROM runs;")) == 2
+        with pytest.raises(Exception, match="Unexpected number of 2 results"):
+            self.backend.get_run("my_first_run")
         pass
 
     def test_get_run(self):
@@ -160,6 +173,10 @@ class TestClickHouseBackend(CheckBehavior, CheckPerformance):
         self.backend.init_run(rmeta)
         cmeta = ChainMeta(rmeta.rid, 1)
         create_chain_table(self._client, cmeta, rmeta)
+
+        with pytest.raises(Exception, match="already exists"):
+            create_chain_table(self._client, cmeta, rmeta)
+
         rows, names_and_types = self._client.execute(
             f"SELECT * FROM {chain_id(cmeta)};", with_column_types=True
         )
@@ -185,6 +202,23 @@ class TestClickHouseBackend(CheckBehavior, CheckPerformance):
         assert "Assuming ndim=0" in caplog.records[0].message
         pass
 
+    def test_get_chains_via_query(self):
+        run, chains = fully_initialized(
+            self.backend,
+            make_runmeta(
+                variables=[
+                    Variable("v1", "uint16", []),
+                    Variable("v2", "float32", list((3,))),
+                    Variable("v3", "float64", [2, 5, 6]),
+                ],
+            ),
+        )
+        newrun = ClickHouseRun(run.meta, client_fn=self.backend._client_fn)
+        chains_fetched = newrun.get_chains()
+        assert len(chains_fetched) > 0
+        assert len(chains_fetched) == len(chains)
+        pass
+
     def test_insert_draw(self):
         run, chains = fully_initialized(
             self.backend,
@@ -202,6 +236,10 @@ class TestClickHouseBackend(CheckBehavior, CheckPerformance):
             "v3": numpy.random.uniform(size=(2, 5, 6)).astype("float64"),
         }
         chain = chains[0]
+
+        with pytest.raises(Exception, match="No draws in chain"):
+            chain._get_rows("v1", [], "uint16")
+
         chain.append(draw)
         assert len(chain._insert_queue) == 1
         chain._commit()
@@ -213,6 +251,9 @@ class TestClickHouseBackend(CheckBehavior, CheckPerformance):
         assert v1 == 12
         numpy.testing.assert_array_equal(v2, draw["v2"])
         numpy.testing.assert_array_equal(v3, draw["v3"])
+
+        with pytest.raises(Exception, match="No record found for draw"):
+            chain._get_row_at(2, var_names=["v1"])
         pass
 
 
