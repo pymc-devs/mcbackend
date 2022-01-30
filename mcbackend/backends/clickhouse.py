@@ -5,7 +5,7 @@ import base64
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Callable, Dict, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 import clickhouse_driver
 import numpy
@@ -80,13 +80,13 @@ def create_chain_table(client: clickhouse_driver.Client, meta: ChainMeta, rmeta:
             )
         columns.append(column_spec_for(var, is_stat=True))
     assert len(set(columns)) == len(columns), columns
-    columns = ",\n            ".join(columns)
+    cols = ",\n            ".join(columns)
 
     query = f"""
         CREATE TABLE {cid}
         (
             `_draw_idx` UInt64,
-            {columns}
+            {cols}
         )
         ENGINE TinyLog();
     """
@@ -110,8 +110,8 @@ class ClickHouseChain(Chain):
         self._client = client
         # The following attributes belong to the batched insert mechanism.
         # Inserting in batches is much faster than inserting single rows.
-        self._insert_query = None
-        self._insert_queue = []
+        self._insert_query: str = ""
+        self._insert_queue: List[Dict[str, Any]] = []
         self._last_insert = time.time()
         self._insert_interval = insert_interval
         self._insert_every = insert_every
@@ -121,7 +121,7 @@ class ClickHouseChain(Chain):
         self, draw: Dict[str, numpy.ndarray], stats: Optional[Dict[str, numpy.ndarray]] = None
     ):
         stat = {f"__stat_{sname}": svals for sname, svals in (stats or {}).items()}
-        params = {"_draw_idx": self._draw_idx, **draw, **stat}
+        params: Dict[str, Any] = {"_draw_idx": self._draw_idx, **draw, **stat}
         self._draw_idx += 1
         if not self._insert_query:
             names = ", ".join(params.keys())
@@ -186,9 +186,10 @@ class ClickHouseChain(Chain):
 
         # The unpacking must also account for non-rigid shapes
         if is_rigid(nshape):
+            assert nshape is not None
             buffer = numpy.empty((draws, *nshape), dtype)
         else:
-            buffer = numpy.repeat(None, draws)
+            buffer = numpy.array([None] * draws)
         for d, (vals,) in enumerate(data):
             buffer[d] = numpy.asarray(vals, dtype)
         return buffer
@@ -228,23 +229,21 @@ class ClickHouseRun(Run):
         self.created_at = created_at
         # We need handles on the chains to commit their batched inserts
         # before returning them to callers of `.get_chains()`.
-        self._chains = None
+        self._chains: List[ClickHouseChain] = []
         super().__init__(meta)
 
     def init_chain(self, chain_number: int) -> ClickHouseChain:
         cmeta = ChainMeta(self.meta.rid, chain_number)
         create_chain_table(self._client, cmeta, self.meta)
         chain = ClickHouseChain(cmeta, self.meta, client=self._client_fn())
-        if self._chains is None:
-            self._chains = []
         self._chains.append(chain)
         return chain
 
-    def get_chains(self) -> Tuple[ClickHouseChain]:
+    def get_chains(self) -> Tuple[ClickHouseChain, ...]:
         # Preferably return existing handles on chains that might have
         # uncommitted inserts pending.
         if self._chains:
-            return self._chains
+            return tuple(self._chains)
 
         # Otherwise fetch existing chains from the DB.
         chains = []
@@ -274,13 +273,14 @@ class ClickHouseBackend(Backend):
         """
         if client is None and client_fn is None:
             raise ValueError("Either a `client` or a `client_fn` must be provided.")
-        self._client_fn = client_fn
-        self._client = client
 
         if client_fn is None:
-            self._client_fn = lambda: client
+            client_fn = lambda: client
         if client is None:
-            self._client = self._client_fn()
+            client = client_fn()
+
+        self._client_fn: Callable[[], clickhouse_driver.Client] = client_fn
+        self._client: clickhouse_driver.Client = client
 
         create_runs_table(self._client)
         super().__init__()

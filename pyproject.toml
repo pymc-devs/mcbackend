@@ -3,3 +3,9 @@ xfail_strict=true
 
 [tool.black]
 line-length = 100
+
+[tool.mypy]
+exclude = [
+  "^mcbackend/test_*",
+]
+ignore_missing_imports = true
