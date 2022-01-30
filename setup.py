@@ -38,6 +38,7 @@ setuptools.setup(
         "License :: OSI Approved :: GNU Affero General Public License v3",
         "Intended Audience :: Science/Research",
     ],
+    package_data={"mcbackend": ["py.typed"]},
     install_requires=[open(pathlib.Path(ROOT, "requirements.txt")).readlines()],
     python_requires=">=3.7",
 )
