@@ -139,3 +139,21 @@ class TestPyMCAdapter:
             ndarray_to_numpy(obs.value), simple_model["obs"].get_value()
         )
         pass
+
+    def test_uninitialized_exceptions(self, simple_model):
+        backend = ClickHouseBackend(self._client)
+        with simple_model:
+            trace = TraceBackend(backend)
+
+        with pytest.raises(Exception, match="setup was not completed"):
+            trace.get_values("scalar")
+
+        with pytest.raises(Exception, match="setup was not completed"):
+            trace._get_stats("doesntmatter")
+
+        with pytest.raises(Exception, match="setup was not completed"):
+            trace._get_sampler_stats("doesntmatter", 0, 0, 1)
+
+        with pytest.raises(Exception, match="setup was not completed"):
+            trace.point(0)
+        pass

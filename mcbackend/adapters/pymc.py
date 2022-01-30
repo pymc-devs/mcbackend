@@ -3,7 +3,7 @@ This module implements an adapter to use any ``mcbackend.Backend`` as a PyMC ``B
 
 The only PyMC dependency is on the ``BaseTrace`` abstract base class.
 """
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import hagelkorn
 import numpy
@@ -104,22 +104,27 @@ class TraceBackend(BaseTrace):
         vars=None,
         test_point=None,
     ):
-        self.chain = None
+        self.chain: int = -1
         super().__init__(name, model, vars, test_point)
         self.run_id = hagelkorn.random(digits=6)
         print(f"Backend run id: {self.run_id}")
         self._backend: Backend = backend
 
         # Sessions created from the underlying backend
-        self._run: Run = None
-        self._chain: Chain = None
-        self._stat_groups: List[List[Tuple[str, str]]] = None
+        self._run: Optional[Run] = None
+        self._chain: Optional[Chain] = None
+        self._stat_groups: List[List[Tuple[str, str]]] = []
         self._length: int = 0
 
     def __len__(self) -> int:
         return self._length
 
-    def setup(self, draws, chain, sampler_vars=None) -> None:
+    def setup(
+        self,
+        draws: int,
+        chain: int,
+        sampler_vars: Optional[List[Dict[str, numpy.dtype]]] = None,
+    ) -> None:
         super().setup(draws, chain, sampler_vars)
         self.chain = chain
 
@@ -131,7 +136,7 @@ class TraceBackend(BaseTrace):
                     name,
                     str(self.var_dtypes[name]),
                     list(self.var_shapes[name]),
-                    dims=list(self.model.RV_dims[name]) if name in self.model.RV_dims else None,
+                    dims=list(self.model.RV_dims[name]) if name in self.model.RV_dims else [],
                     is_deterministic=(name not in free_rv_names),
                 )
                 for name in self.varnames
@@ -196,15 +201,23 @@ class TraceBackend(BaseTrace):
         return
 
     def get_values(self, varname, burn=0, thin=1) -> numpy.ndarray:
+        if self._chain is None:
+            raise Exception("Trace setup was not completed. Call `.setup()` first.")
         return self._chain.get_draws(varname)[burn::thin]
 
     def _get_stats(self, varname, burn=0, thin=1) -> numpy.ndarray:
+        if self._chain is None:
+            raise Exception("Trace setup was not completed. Call `.setup()` first.")
         return self._chain.get_stats(varname)[burn::thin]
 
     def _get_sampler_stats(self, stat_name, sampler_idx, burn, thin):
+        if self._chain is None:
+            raise Exception("Trace setup was not completed. Call `.setup()` first.")
         return self._get_stats(f"sampler_{sampler_idx}__{stat_name}", burn, thin)
 
     def point(self, idx: int):
+        if self._chain is None:
+            raise Exception("Trace setup was not completed. Call `.setup()` first.")
         return self._chain.get_draws_at(idx, self.var_names)
 
     def as_readonly(self) -> ReadOnlyTrace:

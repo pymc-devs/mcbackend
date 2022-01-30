@@ -16,6 +16,10 @@ class TestUtils:
             numpy.array(5),
             numpy.array(["hello", "world"]),
             numpy.array([datetime(2020, 3, 4, 5, 6, 7, 8), datetime(2020, 3, 4, 5, 6, 7, 9)]),
+            numpy.array(
+                [datetime(2020, 3, 4, 5, 6, 7, 8), datetime(2020, 3, 4, 5, 6, 7, 9)],
+                dtype="datetime64",
+            ),
             numpy.array([(1, 2), (3, 2, 1)], dtype=object),
         ],
     )

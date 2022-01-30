@@ -3,17 +3,22 @@ Module with metadata structures and abstract classes.
 """
 import collections
 import logging
-from typing import Dict, Optional, Sequence, Sized, TypeVar
+from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Sized, TypeVar
 
 import numpy
 
 from .meta import ChainMeta, RunMeta, Variable
 from .npproto.utils import ndarray_to_numpy
 
+InferenceData = TypeVar("InferenceData")
 try:
-    from arviz import InferenceData, from_dict
+    from arviz import from_dict
+
+    if not TYPE_CHECKING:
+        from arviz import InferenceData
+    _HAS_ARVIZ = True
 except ModuleNotFoundError:
-    InferenceData = TypeVar("InferenceData")
+    _HAS_ARVIZ = False
 
 Shape = Sequence[int]
 _log = logging.getLogger(__file__)
@@ -31,7 +36,9 @@ def is_rigid(nshape: Optional[Shape]):
         - ``[2, 0]`` indicates a matrix with 2 rows and dynamic number of columns (rigid: False).
         - ``None`` indicates dynamic dimensionality (rigid: False).
     """
-    if nshape is None or any(s == 0 for s in nshape):
+    if nshape is None:
+        return False
+    if any(s == 0 for s in nshape):
         return False
     return True
 
@@ -127,14 +134,14 @@ class Run:
         return {coord.name: ndarray_to_numpy(coord.values) for coord in self.meta.coordinates}
 
     @property
-    def dims(self) -> Dict[str, Sequence[str]]:
+    def dims(self) -> Dict[str, List[str]]:
         dims = {}
         for var in self.meta.variables:
             if len(var.dims) == len(var.shape) and not var.undefined_ndim:
-                dims[var.name] = var.dims
+                dims[var.name] = list(var.dims)
         for dvar in self.meta.data:
             if len(dvar.dims) > 0:
-                dims[dvar.name] = dvar.dims
+                dims[dvar.name] = list(dvar.dims)
         return dims
 
     @property
@@ -158,7 +165,7 @@ class Run:
         idata : arviz.InferenceData
             Samples and metadata of this inference run.
         """
-        if isinstance(InferenceData, TypeVar):
+        if not _HAS_ARVIZ:
             raise ModuleNotFoundError("ArviZ is not installed.")
 
         variables = self.meta.variables

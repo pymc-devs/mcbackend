@@ -2,7 +2,7 @@
 This backend holds draws in memory, managing them via NumPy arrays.
 """
 import math
-from typing import Dict, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy
 
@@ -26,7 +26,7 @@ def grow_append(
             if rigid[vn]:
                 extension = numpy.empty((ngrow,) + numpy.shape(v))
             else:
-                extension = numpy.repeat(None, ngrow)
+                extension = numpy.array([None] * ngrow)
             storage_dict[vn] = numpy.concatenate((target, extension), axis=0)
             target = storage_dict[vn]
         target[draw_idx] = v
@@ -53,10 +53,10 @@ class NumPyChain(Chain):
             where the correct amount of memory cannot be pre-allocated.
             In these cases, and when ``preallocate == 0`` object arrays are used.
         """
-        self._var_is_rigid = {}
-        self._samples = {}
-        self._stat_is_rigid = {}
-        self._stats = {}
+        self._var_is_rigid: Dict[str, bool] = {}
+        self._samples: Dict[str, numpy.ndarray] = {}
+        self._stat_is_rigid: Dict[str, bool] = {}
+        self._stats: Dict[str, numpy.ndarray] = {}
         self._draw_idx = 0
 
         # Create storage ndarrays for each model variable and sampler stat.
@@ -71,7 +71,7 @@ class NumPyChain(Chain):
                     reserve = (preallocate, *var.shape)
                     target_dict[var.name] = numpy.empty(reserve, var.dtype)
                 else:
-                    target_dict[var.name] = numpy.repeat(None, preallocate)
+                    target_dict[var.name] = numpy.array([None] * preallocate)
 
         super().__init__(cmeta, rmeta)
 
@@ -105,7 +105,7 @@ class NumPyRun(Run):
 
     def __init__(self, meta: RunMeta, *, preallocate: int) -> None:
         self._settings = dict(preallocate=preallocate)
-        self._chains = []
+        self._chains: List[NumPyChain] = []
         super().__init__(meta)
 
     def init_chain(self, chain_number: int) -> NumPyChain:
@@ -114,7 +114,7 @@ class NumPyRun(Run):
         self._chains.append(chain)
         return chain
 
-    def get_chains(self) -> Tuple[Chain]:
+    def get_chains(self) -> Tuple[NumPyChain, ...]:
         return tuple(self._chains)
 
 

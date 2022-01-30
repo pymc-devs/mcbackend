@@ -22,6 +22,7 @@ def ndarray_from_numpy(arr: numpy.ndarray) -> Ndarray:
 
 
 def ndarray_to_numpy(nda: Ndarray) -> numpy.ndarray:
+    arr: numpy.ndarray
     if "datetime64" in nda.dtype:
         # Backwards conversion: The data was stored as int64.
         arr = numpy.ndarray(
