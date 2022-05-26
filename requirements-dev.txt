@@ -1,7 +1,7 @@
 arviz
 clickhouse-driver
 flake8
-pymc==4.0.0b3
+pymc==4.0.0b6
 pytest
 pytest-cov
 twine
