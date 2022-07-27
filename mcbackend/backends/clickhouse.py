@@ -189,10 +189,19 @@ class ClickHouseChain(Chain):
             assert nshape is not None
             buffer = numpy.empty((draws, *nshape), dtype)
         else:
-            buffer = numpy.array([None] * draws)
+            buffer = [None] * draws
         for d, (vals,) in enumerate(data):
             buffer[d] = numpy.asarray(vals, dtype)
-        return buffer
+
+        # If the values are "ragged" (have different shapes) the
+        # numpy array must be dtype=object.
+        if len({v.shape for v in buffer}) > 1:
+            # To circumvent NumPy issue #19113
+            arr = numpy.empty(draws, dtype=object)
+            arr[:] = buffer
+            return arr
+        # Otherwise (identical shapes) we can collapse into one ndarray
+        return numpy.asarray(buffer, dtype=dtype)
 
     def get_draws(self, var_name: str) -> numpy.ndarray:
         var = self.variables[var_name]
