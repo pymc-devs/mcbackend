@@ -188,9 +188,13 @@ class Run:
         posterior = collections.defaultdict(list)
         sample_stats = collections.defaultdict(list)
         for c, chain in enumerate(chains):
+            # Every retrieved array is shortened to the previously determined chain length.
+            # This is needed for database backends which may get inserts inbetween.
+            clen = chain_lengths[chain.cid]
+
             # Obtain a mask by which draws can be split into warmup/posterior
             if "tune" in chain.sample_stats:
-                tune = chain.get_stats("tune").astype(bool)
+                tune = chain.get_stats("tune")[:clen].astype(bool)
             else:
                 if c == 0:
                     _log.warning(
@@ -200,12 +204,12 @@ class Run:
 
             # Split all variables draws into warmup/posterior
             for var in variables:
-                draws = chain.get_draws(var.name)
+                draws = chain.get_draws(var.name)[:clen]
                 warmup_posterior[var.name].append(draws[tune])
                 posterior[var.name].append(draws[~tune])
             # Same for sample stats
             for svar in self.meta.sample_stats:
-                stats = chain.get_stats(svar.name)
+                stats = chain.get_stats(svar.name)[:clen]
                 warmup_sample_stats[svar.name].append(stats[tune])
                 sample_stats[svar.name].append(stats[~tune])
 
