@@ -4,5 +4,7 @@ flake8
 pymc==4.1.4
 pytest
 pytest-cov
+# Temporary pin to fix Aesara import
+setuptools>=48.0.0
 twine
 wheel
