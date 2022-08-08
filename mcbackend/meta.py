@@ -6,117 +6,145 @@ from datetime import datetime, timedelta
 from typing import Dict, List
 
 import betterproto
-from betterproto.grpc.grpclib_server import ServiceBase
+import betterproto.lib.google.protobuf as betterproto_lib_google_protobuf
+
+from . import npproto
 
 
 @dataclass(eq=False, repr=False)
 class ChainMeta(betterproto.Message):
     """Metadata associated with an MCMC chain."""
 
-    # Unique identifier of the MCMC run this chain belongs to.
     rid: str = betterproto.string_field(1)
-    # Number of the chain inside the MCMC run.
+    """Unique identifier of the MCMC run this chain belongs to."""
+
     chain_number: int = betterproto.int32_field(2)
+    """Number of the chain inside the MCMC run."""
 
 
 @dataclass(eq=False, repr=False)
 class Variable(betterproto.Message):
     """Description of a model variable."""
 
-    # Name of the variable.
     name: str = betterproto.string_field(1)
-    # Data type (lowercase).
+    """Name of the variable."""
+
     dtype: str = betterproto.string_field(2)
-    # The shape tuple. May contain 0es for dynamically sized dimensions. The
-    # default value, an empty sequence, corresponds to scalar shape. Note that
-    # for variables of dynamic dimensionality, ``undefined_ndim=True`` can be set
-    # to render ``shape`` and ``dims`` meaningless.
+    """Data type (lowercase)."""
+
     shape: List[int] = betterproto.uint64_field(3)
-    # Names of the variable's dimensions. The default value, an empty sequence,
-    # corresponds to undefined dimension names and applies to scalar variables,
-    # and variables where ``undefined_ndim=True``.
+    """
+    The shape tuple. May contain 0es for dynamically sized dimensions. The
+    default value, an empty sequence, corresponds to scalar shape. Note that
+    for variables of dynamic dimensionality, ``undefined_ndim=True`` can be set
+    to render ``shape`` and ``dims`` meaningless.
+    """
+
     dims: List[str] = betterproto.string_field(4)
-    # Could this variable be computed deterministically from other variables?
+    """
+    Names of the variable's dimensions. The default value, an empty sequence,
+    corresponds to undefined dimension names and applies to scalar variables,
+    and variables where ``undefined_ndim=True``.
+    """
+
     is_deterministic: bool = betterproto.bool_field(5)
-    # Set to ``True`` when the dimensionality of this variable is undefined,
-    # rendering ``shape`` meaningless.
+    """
+    Could this variable be computed deterministically from other variables?
+    """
+
     undefined_ndim: bool = betterproto.bool_field(6)
+    """
+    Set to ``True`` when the dimensionality of this variable is undefined,
+    rendering ``shape`` meaningless.
+    """
 
 
 @dataclass(eq=False, repr=False)
 class Coordinate(betterproto.Message):
     """A named array that labels a dimension."""
 
-    # Name of the dimension these labels belong to.
     name: str = betterproto.string_field(1)
-    # Coordinate values.
+    """Name of the dimension these labels belong to."""
+
     values: "npproto.Ndarray" = betterproto.message_field(2)
+    """Coordinate values."""
 
 
 @dataclass(eq=False, repr=False)
 class DataVariable(betterproto.Message):
     """Constant or observed data in the model."""
 
-    # Name of the data variable.
     name: str = betterproto.string_field(1)
-    # The array containing the data.
+    """Name of the data variable."""
+
     value: "npproto.Ndarray" = betterproto.message_field(2)
-    # Names of the dimensions.
+    """The array containing the data."""
+
     dims: List[str] = betterproto.string_field(3)
-    # Is the posterior conditional on this data?
+    """Names of the dimensions."""
+
     is_observed: bool = betterproto.bool_field(4)
+    """Is the posterior conditional on this data?"""
 
 
 @dataclass(eq=False, repr=False)
 class ExtendedValue(betterproto.Message):
     """Like google.protobuf.Value, but with support for additional types."""
 
-    # Represents a null value.
     null_value: "betterproto_lib_google_protobuf.NullValue" = betterproto.enum_field(
         1, group="kind"
     )
-    # Represents a double value.
+    """Represents a null value."""
+
     number_value: float = betterproto.double_field(2, group="kind")
-    # Represents a string value.
+    """Represents a double value."""
+
     string_value: str = betterproto.string_field(3, group="kind")
-    # Represents a boolean value.
+    """Represents a string value."""
+
     bool_value: bool = betterproto.bool_field(4, group="kind")
-    # Represents a structured value.
+    """Represents a boolean value."""
+
     struct_value: "betterproto_lib_google_protobuf.Struct" = betterproto.message_field(
         5, group="kind"
     )
-    # Represents a repeated `Value`.
+    """Represents a structured value."""
+
     list_value: "betterproto_lib_google_protobuf.ListValue" = betterproto.message_field(
         6, group="kind"
     )
-    # Represents a timestamp value.
+    """Represents a repeated `Value`."""
+
     timestamp_value: datetime = betterproto.message_field(7, group="kind")
-    # Represents a duration value.
+    """Represents a timestamp value."""
+
     duration_value: timedelta = betterproto.message_field(8, group="kind")
-    # Represents a NumPy array value.
+    """Represents a duration value."""
+
     ndarray_value: "npproto.Ndarray" = betterproto.message_field(9, group="kind")
+    """Represents a NumPy array value."""
 
 
 @dataclass(eq=False, repr=False)
 class RunMeta(betterproto.Message):
     """Metadata associated with an MCMC run."""
 
-    # Unique identifier of the MCMC run.
     rid: str = betterproto.string_field(1)
-    # Metadata of model variables.
+    """Unique identifier of the MCMC run."""
+
     variables: List["Variable"] = betterproto.message_field(3)
-    # Named arrays to label dimensions.
+    """Metadata of model variables."""
+
     coordinates: List["Coordinate"] = betterproto.message_field(4)
-    # Arbitrary metadata
+    """Named arrays to label dimensions."""
+
     attributes: Dict[str, "ExtendedValue"] = betterproto.map_field(
         5, betterproto.TYPE_STRING, betterproto.TYPE_MESSAGE
     )
-    # Diagnostic variables produced by MCMC sampling algorithms.
+    """Arbitrary metadata"""
+
     sample_stats: List["Variable"] = betterproto.message_field(6)
-    # Constant or observed data in the model.
+    """Diagnostic variables produced by MCMC sampling algorithms."""
+
     data: List["DataVariable"] = betterproto.message_field(7)
-
-
-import betterproto.lib.google.protobuf as betterproto_lib_google_protobuf
-
-from . import npproto
+    """Constant or observed data in the model."""
