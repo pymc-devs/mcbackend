@@ -181,17 +181,14 @@ class Run:
         chain_lengths = {c.cid: len(c) for c in chains}
         if len(set(chain_lengths.values())) != 1:
             _log.warning("Chains vary in length. Lenghts are: %s", chain_lengths)
-
+        clen = min(chain_lengths.values()) # use a minimum chain length from all chains
+        
         # Aggregate draws and stats, while splitting into warmup/posterior
         warmup_posterior = collections.defaultdict(list)
         warmup_sample_stats = collections.defaultdict(list)
         posterior = collections.defaultdict(list)
         sample_stats = collections.defaultdict(list)
         for c, chain in enumerate(chains):
-            # Every retrieved array is shortened to the previously determined chain length.
-            # This is needed for database backends which may get inserts inbetween.
-            clen = chain_lengths[chain.cid]
-
             # Obtain a mask by which draws can be split into warmup/posterior
             if "tune" in chain.sample_stats:
                 tune = chain.get_stats("tune")[:clen].astype(bool)
