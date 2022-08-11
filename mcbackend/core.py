@@ -182,21 +182,36 @@ class Run:
 
         chain_lengths = {c.cid: len(c) for c in chains}
         if len(set(chain_lengths.values())) != 1:
-            _log.warning("Chains vary in length. Lenghts are: %s", chain_lengths)
-        clen = None
+            msg = f"Chains vary in length. Lenghts are: {chain_lengths}"
+            if not equalize_chain_lengths:
+                msg += (
+                    "\nArviZ does not properly support uneven chain lengths (see ArviZ issue #2094)."
+                    "\nWe'll try to give you an InferenceData, but best case the chain & draw dimensions"
+                    " will be messed-up as {'chain': 1, 'draws': n_chains}."
+                    "\nYou won't be able to save this InferenceData to a file"
+                    " and you should expect many ArviZ functions to choke on it."
+                    "\nSpecify `to_inferencedata(equalize_chain_lengths=True)` to get regular InferenceData."
+                )
+            else:
+                msg += "\nTruncating to the length of the shortest chain."
+            _log.warning(msg)
+        min_clen = None
         if equalize_chain_lengths:
             # A minimum chain length is introduced so that all chains have equal length
-            clen = min(chain_lengths.values())
+            min_clen = min(chain_lengths.values())
         # Aggregate draws and stats, while splitting into warmup/posterior
         warmup_posterior = collections.defaultdict(list)
         warmup_sample_stats = collections.defaultdict(list)
         posterior = collections.defaultdict(list)
         sample_stats = collections.defaultdict(list)
         for c, chain in enumerate(chains):
-            if clen is None:
+            # NOTE: Replace the truncation with a ranged fetch once issue #47 is resolved.
+            if min_clen is None:
                 # Every retrieved array is shortened to the previously determined chain length.
                 # This is needed for database backends which may get inserts inbetween.
                 clen = chain_lengths[chain.cid]
+            else:
+                clen = min_clen
 
             # Obtain a mask by which draws can be split into warmup/posterior
             if "tune" in chain.sample_stats:
