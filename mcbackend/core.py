@@ -157,7 +157,8 @@ class Run:
 
         Parameters
         ----------
-        equalize_chain_lengths: Whether to truncate all chains to the minimum chain length
+        equalize_chain_lengths : bool
+            Whether to truncate all chains to the shortest chain length (default: ``True``).
         **kwargs
             Will be forwarded to ``arviz.from_dict()``.
 
