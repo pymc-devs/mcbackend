@@ -152,11 +152,13 @@ class Run:
     def observed_data(self) -> Dict[str, numpy.ndarray]:
         return {dv.name: ndarray_to_numpy(dv.value) for dv in self.meta.data if dv.is_observed}
 
-    def to_inferencedata(self, **kwargs) -> InferenceData:
+    def to_inferencedata(self, *, equalize_chain_lengths: bool = True, **kwargs) -> InferenceData:
         """Creates an ArviZ ``InferenceData`` object from this run.
 
         Parameters
         ----------
+        equalize_chain_lengths : bool
+            Whether to truncate all chains to the shortest chain length (default: ``True``).
         **kwargs
             Will be forwarded to ``arviz.from_dict()``.
 
@@ -181,16 +183,20 @@ class Run:
         chain_lengths = {c.cid: len(c) for c in chains}
         if len(set(chain_lengths.values())) != 1:
             _log.warning("Chains vary in length. Lenghts are: %s", chain_lengths)
-
+        clen = None
+        if equalize_chain_lengths:
+            # A minimum chain length is introduced so that all chains have equal length
+            clen = min(chain_lengths.values())
         # Aggregate draws and stats, while splitting into warmup/posterior
         warmup_posterior = collections.defaultdict(list)
         warmup_sample_stats = collections.defaultdict(list)
         posterior = collections.defaultdict(list)
         sample_stats = collections.defaultdict(list)
         for c, chain in enumerate(chains):
-            # Every retrieved array is shortened to the previously determined chain length.
-            # This is needed for database backends which may get inserts inbetween.
-            clen = chain_lengths[chain.cid]
+            if clen is None:
+                # Every retrieved array is shortened to the previously determined chain length.
+                # This is needed for database backends which may get inserts inbetween.
+                clen = chain_lengths[chain.cid]
 
             # Obtain a mask by which draws can be split into warmup/posterior
             if "tune" in chain.sample_stats:
