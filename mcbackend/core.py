@@ -193,7 +193,7 @@ class Run:
         posterior = collections.defaultdict(list)
         sample_stats = collections.defaultdict(list)
         for c, chain in enumerate(chains):
-            if not equalize_chain_lengths:
+            if clen is None:
             # Every retrieved array is shortened to the previously determined chain length.
             # This is needed for database backends which may get inserts inbetween.
                 clen = chain_lengths[chain.cid]
