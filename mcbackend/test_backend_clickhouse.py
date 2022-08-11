@@ -256,6 +256,60 @@ class TestClickHouseBackend(CheckBehavior, CheckPerformance):
             chain._get_row_at(2, var_names=["v1"])
         pass
 
+    def test_to_inferencedata_equalize_chain_lengths(self, caplog):
+        run, chains = fully_initialized(
+            self.backend,
+            make_runmeta(
+                variables=[
+                    Variable("A", "uint16", []),
+                ],
+                sample_stats=[Variable("tune", "bool")],
+                data=[],
+            ),
+            nchains=2,
+        )
+        # Create chains of uneven lengths:
+        # - Chain 0 has 5 tune and 15 draws (length 20)
+        # - Chain 1 has 5 tune and 14 draws (length 19)
+        # This simulates the situation where chains aren't synchronized.
+        ntune = 5
+
+        c0 = chains[0]
+        for i in range(0, 20):
+            c0.append(dict(A=i), stats=dict(tune=i < ntune))
+
+        c1 = chains[1]
+        for i in range(0, 19):
+            c1.append(dict(A=i), stats=dict(tune=i < ntune))
+
+        assert len(c0) == 20
+        assert len(c1) == 19
+
+        # With equalize=True all chains should have the length of the shortest (here: 7)
+        # But the first 3 are tuning, so 4 posterior draws remain.
+        with caplog.at_level(logging.WARNING):
+            idata_even = run.to_inferencedata(equalize_chain_lengths=True)
+        assert "Chains vary in length" in caplog.records[0].message
+        assert "Truncating to" in caplog.records[0].message
+        assert len(idata_even.posterior.draw) == 14
+
+        # With equalize=False the "draw" dim has the length of the longest chain (here: 8-3 = 5)
+        caplog.clear()
+        with caplog.at_level(logging.WARNING):
+            idata_uneven = run.to_inferencedata(equalize_chain_lengths=False)
+        # These are the messed-up chain and draw dimensions!
+        assert idata_uneven.posterior.dims["chain"] == 1
+        assert idata_uneven.posterior.dims["draw"] == 2
+        # The "draws" are actually the chains, but in a weird scalar object-array?!
+        # Doing .tolist() seems to be the only way to get our hands on it.
+        d1 = idata_uneven.posterior.A.sel(chain=0, draw=0).values.tolist()
+        d2 = idata_uneven.posterior.A.sel(chain=0, draw=1).values.tolist()
+        numpy.testing.assert_array_equal(d1, list(range(ntune, 20)))
+        numpy.testing.assert_array_equal(d2, list(range(ntune, 19)))
+        assert "Chains vary in length" in caplog.records[0].message
+        assert "see ArviZ issue #2094" in caplog.records[0].message
+        pass
+
 
 if __name__ == "__main__":
     tc = TestClickHouseBackend()
