@@ -152,7 +152,7 @@ class Run:
     def observed_data(self) -> Dict[str, numpy.ndarray]:
         return {dv.name: ndarray_to_numpy(dv.value) for dv in self.meta.data if dv.is_observed}
 
-    def to_inferencedata(self, equalize_chain_lengths: bool=True, **kwargs) -> InferenceData:
+    def to_inferencedata(self, *, equalize_chain_lengths: bool=True, **kwargs) -> InferenceData:
         """Creates an ArviZ ``InferenceData`` object from this run.
 
         Parameters
