@@ -183,7 +183,7 @@ class Run:
         chain_lengths = {c.cid: len(c) for c in chains}
         if len(set(chain_lengths.values())) != 1:
             _log.warning("Chains vary in length. Lenghts are: %s", chain_lengths)
-        
+        clen = None
         if equalize_chain_lengths:
             # A minimum chain length is introduced so that all chains have equal length
             clen = min(chain_lengths.values())
