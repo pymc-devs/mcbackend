@@ -152,7 +152,7 @@ class Run:
     def observed_data(self) -> Dict[str, numpy.ndarray]:
         return {dv.name: ndarray_to_numpy(dv.value) for dv in self.meta.data if dv.is_observed}
 
-    def to_inferencedata(self, *, equalize_chain_lengths: bool=True, **kwargs) -> InferenceData:
+    def to_inferencedata(self, *, equalize_chain_lengths: bool = True, **kwargs) -> InferenceData:
         """Creates an ArviZ ``InferenceData`` object from this run.
 
         Parameters
@@ -194,8 +194,8 @@ class Run:
         sample_stats = collections.defaultdict(list)
         for c, chain in enumerate(chains):
             if clen is None:
-            # Every retrieved array is shortened to the previously determined chain length.
-            # This is needed for database backends which may get inserts inbetween.
+                # Every retrieved array is shortened to the previously determined chain length.
+                # This is needed for database backends which may get inserts inbetween.
                 clen = chain_lengths[chain.cid]
 
             # Obtain a mask by which draws can be split into warmup/posterior
