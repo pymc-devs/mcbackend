@@ -166,18 +166,15 @@ class ClickHouseChain(Chain):
         result = dict(zip(var_names, data[0][0]))
         return result
 
-    def _get_rows(  # pylint: disable=W0221
+    def _get_rows(
         self,
         var_name: str,
         nshape: Optional[Sequence[int]],
         dtype: str,
-        *,
-        burn: int = 0,
+        slc: slice = slice(None),
     ) -> numpy.ndarray:
         self._commit()
-        data = self._client.execute(
-            f"SELECT (`{var_name}`) FROM {self.cid} WHERE _draw_idx>={burn};"
-        )
+        data = self._client.execute(f"SELECT (`{var_name}`) FROM {self.cid};")
         draws = len(data)
 
         # Safety checks
@@ -201,20 +198,20 @@ class ClickHouseChain(Chain):
             arr[:] = buffer
             return arr
         # Otherwise (identical shapes) we can collapse into one ndarray
-        return numpy.asarray(buffer, dtype=dtype)
+        return numpy.asarray(buffer, dtype=dtype)[slc]
 
-    def get_draws(self, var_name: str) -> numpy.ndarray:
+    def get_draws(self, var_name: str, slc: slice = slice(None)) -> numpy.ndarray:
         var = self.variables[var_name]
         nshape = var.shape if not var.undefined_ndim else None
-        return self._get_rows(var_name, nshape, var.dtype)
+        return self._get_rows(var_name, nshape, var.dtype, slc)
 
     def get_draws_at(self, idx: int, var_names: Sequence[str]) -> Dict[str, numpy.ndarray]:
         return self._get_row_at(idx, var_names)
 
-    def get_stats(self, stat_name: str) -> numpy.ndarray:
+    def get_stats(self, stat_name: str, slc: slice = slice(None)) -> numpy.ndarray:
         var = self.sample_stats[stat_name]
         nshape = var.shape if not var.undefined_ndim else None
-        return self._get_rows(f"__stat_{stat_name}", nshape, var.dtype)
+        return self._get_rows(f"__stat_{stat_name}", nshape, var.dtype, slc)
 
     def get_stats_at(self, idx: int, stat_names: Sequence[str]) -> Dict[str, numpy.ndarray]:
         stats = self._get_row_at(idx, [f"__stat_{sname}" for sname in stat_names])

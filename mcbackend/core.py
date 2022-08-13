@@ -70,12 +70,30 @@ class Chain(Sized):
         """
         raise NotImplementedError()
 
-    def get_draws(self, var_name: str) -> numpy.ndarray:
-        """Retrieve all draws of a variable from an MCMC chain."""
+    def get_draws(self, var_name: str, slc: slice = slice(None)) -> numpy.ndarray:
+        """Retrieve draws of a variable from an MCMC chain.
+
+        Parameters
+        ----------
+        var_name : str
+            Name of the variable.
+        slc : slice, optional
+            Optional ``slice`` object to retrieve only a subset of elements.
+            Passing this can be more performant than slicing the returned value.
+        """
         raise NotImplementedError()
 
-    def get_stats(self, stat_name: str) -> numpy.ndarray:
-        """Retrieve all values of a sampler statistic."""
+    def get_stats(self, stat_name: str, slc: slice = slice(None)) -> numpy.ndarray:
+        """Retrieve values of a sampler statistic.
+
+        Parameters
+        ----------
+        stat_name : str
+            Name of the stats variable.
+        slc : slice, optional
+            Optional ``slice`` object to retrieve only a subset of elements.
+            Passing this can be more performant than slicing the returned value.
+        """
         raise NotImplementedError()
 
     def get_draws_at(self, idx: int, var_names: Sequence[str]) -> Dict[str, numpy.ndarray]:
