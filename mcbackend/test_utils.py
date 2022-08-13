@@ -178,6 +178,47 @@ class CheckBehavior(BaseBackendTest):
                         numpy.testing.assert_array_equal(act, exp)
         pass
 
+    @pytest.mark.parametrize(
+        "slc",
+        [
+            None,
+            slice(None, None, None),
+            slice(2, None, None),
+            slice(2, 10, None),
+            slice(2, 15, 3),
+            slice(-8, None, None),
+            slice(-8, -2, 2),
+            slice(-50, -2, 2),
+            slice(15, 10),
+        ],
+    )
+    def test__get_slicing(self, slc: slice):
+        rmeta = make_runmeta(
+            variables=[Variable("A", "uint8")],
+            sample_stats=[Variable("B", "uint8")],
+            data=[],
+        )
+        run = self.backend.init_run(rmeta)
+        chain = run.init_chain(0)
+
+        # Generate draws and add them to the chain
+        N = 20
+        draws = [dict(A=n) for n in range(N)]
+        stats = [dict(B=n) for n in range(N)]
+        for d, s in zip(draws, stats):
+            chain.append(d, s)
+        assert len(chain) == N
+
+        # slc=None in this test means "don't pass it".
+        # The implementations should default to slc=slice(None, None, None).
+        expected = numpy.arange(N, dtype="uint8")[slc or slice(None, None, None)]
+        kwargs = dict(slc=slc) if slc is not None else {}
+        act_draws = chain.get_draws("A", **kwargs)
+        act_stats = chain.get_stats("B", **kwargs)
+        numpy.testing.assert_array_equal(act_draws, expected)
+        numpy.testing.assert_array_equal(act_stats, expected)
+        pass
+
     def test__get_chains(self):
         rmeta = make_runmeta()
         run = self.backend.init_run(rmeta)
