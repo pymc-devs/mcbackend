@@ -223,17 +223,17 @@ class Run:
         posterior = collections.defaultdict(list)
         sample_stats = collections.defaultdict(list)
         for c, chain in enumerate(chains):
-            # NOTE: Replace the truncation with a ranged fetch once issue #47 is resolved.
+            # Create a slice to use when fetching the variables
             if min_clen is None:
                 # Every retrieved array is shortened to the previously determined chain length.
-                # This is needed for database backends which may get inserts inbetween.
-                clen = chain_lengths[chain.cid]
+                # Needed for backends which may get inserts inbetween our get_draws/get_stats calls.
+                slc = slice(0, chain_lengths[chain.cid])
             else:
-                clen = min_clen
+                slc = slice(0, min_clen)
 
             # Obtain a mask by which draws can be split into warmup/posterior
             if "tune" in chain.sample_stats:
-                tune = chain.get_stats("tune")[:clen].astype(bool)
+                tune = chain.get_stats("tune", slc).astype(bool)
             else:
                 if c == 0:
                     _log.warning(
@@ -243,12 +243,12 @@ class Run:
 
             # Split all variables draws into warmup/posterior
             for var in variables:
-                draws = chain.get_draws(var.name)[:clen]
+                draws = chain.get_draws(var.name, slc)
                 warmup_posterior[var.name].append(draws[tune])
                 posterior[var.name].append(draws[~tune])
             # Same for sample stats
             for svar in self.meta.sample_stats:
-                stats = chain.get_stats(svar.name)[:clen]
+                stats = chain.get_stats(svar.name, slc)
                 warmup_sample_stats[svar.name].append(stats[tune])
                 sample_stats[svar.name].append(stats[~tune])
 
