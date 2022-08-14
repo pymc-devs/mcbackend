@@ -177,9 +177,11 @@ class ClickHouseChain(Chain):
         data = self._client.execute(f"SELECT (`{var_name}`) FROM {self.cid};")
         draws = len(data)
 
-        # Safety checks
+        # Without draws return empty arrays of the correct shape/dtype
         if not draws:
-            raise Exception(f"No draws in chain {self.cid}.")
+            if is_rigid(nshape):
+                return numpy.empty(shape=[0] + nshape, dtype=dtype)
+            return numpy.array([], dtype=object)
 
         # The unpacking must also account for non-rigid shapes
         if is_rigid(nshape):
@@ -196,7 +198,7 @@ class ClickHouseChain(Chain):
             # To circumvent NumPy issue #19113
             arr = numpy.empty(draws, dtype=object)
             arr[:] = buffer
-            return arr
+            return arr[slc]
         # Otherwise (identical shapes) we can collapse into one ndarray
         return numpy.asarray(buffer, dtype=dtype)[slc]
 

@@ -185,17 +185,22 @@ class CheckBehavior(BaseBackendTest):
             slice(None, None, None),
             slice(2, None, None),
             slice(2, 10, None),
-            slice(2, 15, 3),
-            slice(-8, None, None),
+            slice(2, 15, 3),  # every 3rd
+            slice(15, 2, -3),  # backwards every 3rd
+            slice(2, 15, -3),  # empty
+            slice(-8, None, None),  # the last 8
             slice(-8, -2, 2),
             slice(-50, -2, 2),
-            slice(15, 10),
+            slice(15, 10),  # empty
+            slice(1, 1),  # empty
         ],
     )
     def test__get_slicing(self, slc: slice):
-        rmeta = make_runmeta(
+        # "A" are just numbers to make diagnosis easier.
+        # "B" are dynamically shaped to cover the edge cases.
+        rmeta = RunMeta(
             variables=[Variable("A", "uint8")],
-            sample_stats=[Variable("B", "uint8")],
+            sample_stats=[Variable("B", "uint8", [2, 0])],
             data=[],
         )
         run = self.backend.init_run(rmeta)
@@ -204,19 +209,26 @@ class CheckBehavior(BaseBackendTest):
         # Generate draws and add them to the chain
         N = 20
         draws = [dict(A=n) for n in range(N)]
-        stats = [dict(B=n) for n in range(N)]
+        stats = [make_draw(rmeta.sample_stats) for n in range(N)]
         for d, s in zip(draws, stats):
             chain.append(d, s)
         assert len(chain) == N
 
         # slc=None in this test means "don't pass it".
         # The implementations should default to slc=slice(None, None, None).
-        expected = numpy.arange(N, dtype="uint8")[slc or slice(None, None, None)]
         kwargs = dict(slc=slc) if slc is not None else {}
         act_draws = chain.get_draws("A", **kwargs)
         act_stats = chain.get_stats("B", **kwargs)
-        numpy.testing.assert_array_equal(act_draws, expected)
-        numpy.testing.assert_array_equal(act_stats, expected)
+        expected_draws = [d["A"] for d in draws][slc or slice(None, None, None)]
+        expected_stats = [s["B"] for s in stats][slc or slice(None, None, None)]
+        # Variable "A" has a rigid shape
+        numpy.testing.assert_array_equal(act_draws, expected_draws)
+        # Stat "B" is dynamically shaped, which means we're dealing with
+        # dtype=object arrays. These must be checked elementwise.
+        assert len(act_stats) == len(expected_stats)
+        assert act_stats.dtype == object
+        for a, e in zip(act_stats, expected_stats):
+            numpy.testing.assert_array_equal(a, e)
         pass
 
     def test__get_chains(self):

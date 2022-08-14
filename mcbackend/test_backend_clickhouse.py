@@ -237,8 +237,10 @@ class TestClickHouseBackend(CheckBehavior, CheckPerformance):
         }
         chain = chains[0]
 
-        with pytest.raises(Exception, match="No draws in chain"):
-            chain._get_rows("v1", [], "uint16")
+        # Get empty vector from empty chain
+        nodraws = chain._get_rows("v1", [], "uint16")
+        assert nodraws.shape == (0,)
+        assert nodraws.dtype == numpy.uint16
 
         chain.append(draw)
         assert len(chain._insert_queue) == 1
