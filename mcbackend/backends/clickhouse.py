@@ -93,6 +93,46 @@ def create_chain_table(client: clickhouse_driver.Client, meta: ChainMeta, rmeta:
     return client.execute(query)
 
 
+def where_slice(slc: slice, imax: int, col="_draw_idx") -> Tuple[str, bool]:
+    """Creates a WHERE clause to select rows according to a Python slice.
+
+    Parameters
+    ----------
+    slc : slice
+        A slice object to apply.
+    imax : int
+        End of the range to which the slice is applied.
+        A `slice(None)` will return this many rows.
+    col : str
+        Name of the primary key column.
+        Assumed to start at 0 with increments of 1.
+
+    Returns
+    -------
+    where : str
+        WHERE clause for the query.
+    reverse : bool
+        If True the query result must be reversed because
+        the slice had a backwards direction.
+    """
+    # Determine non-negative slice indices
+    istart, istop, istep = slc.indices(imax)
+    if istep < 0:
+        istop, istart = istart + 1, istop + 1
+        reverse = True
+    else:
+        reverse = False
+
+    # Aggregate conditions
+    conds = []
+    if istart > 0:
+        conds.append(f"{col}>={istart}")
+    conds.append(f"{col}<{istop}")
+    if istep != 1:
+        conds.append(f"modulo({col} - {istart}, {abs(istep)}) == 0")
+    return "WHERE " + " AND ".join(conds), reverse
+
+
 class ClickHouseChain(Chain):
     """Represents an MCMC chain stored in ClickHouse."""
 
@@ -174,8 +214,11 @@ class ClickHouseChain(Chain):
         slc: slice = slice(None),
     ) -> numpy.ndarray:
         self._commit()
-        data = self._client.execute(f"SELECT (`{var_name}`) FROM {self.cid};")
+        where, reverse = where_slice(slc, self._draw_idx)
+        data = self._client.execute(f"SELECT (`{var_name}`) FROM {self.cid} {where};")
         draws = len(data)
+        if reverse:
+            data = reversed(data)
 
         # Without draws return empty arrays of the correct shape/dtype
         if not draws:
@@ -198,9 +241,9 @@ class ClickHouseChain(Chain):
             # To circumvent NumPy issue #19113
             arr = numpy.empty(draws, dtype=object)
             arr[:] = buffer
-            return arr[slc]
+            return arr
         # Otherwise (identical shapes) we can collapse into one ndarray
-        return numpy.asarray(buffer, dtype=dtype)[slc]
+        return numpy.asarray(buffer, dtype=dtype)
 
     def get_draws(self, var_name: str, slc: slice = slice(None)) -> numpy.ndarray:
         var = self.variables[var_name]
