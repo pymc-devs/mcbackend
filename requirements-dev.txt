@@ -1,7 +1,7 @@
 arviz
 clickhouse-driver
 flake8
-pymc==4.1.4
+pymc==4.1.5
 pytest
 pytest-cov
 # Temporary pin to fix Aesara import
