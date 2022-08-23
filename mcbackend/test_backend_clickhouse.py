@@ -255,7 +255,6 @@ class TestClickHouseBackend(CheckBehavior, CheckPerformance):
         numpy.testing.assert_array_equal(v3, draw["v3"])
         pass
 
-    @pytest.mark.xfail(reason="issue #56")
     def test_get_row_at(self):
         run, chains = fully_initialized(
             self.backend,

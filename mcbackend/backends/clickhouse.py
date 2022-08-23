@@ -200,7 +200,9 @@ class ClickHouseChain(Chain):
     ) -> Dict[str, numpy.ndarray]:
         self._commit()
         names = ",".join(var_names)
-        data = self._client.execute(f"SELECT ({names}) FROM {self.cid} WHERE _draw_idx={idx};")
+        # NOTE: The trailing , 👇 is included to get the same signature when len(var_names) == 1.
+        query = f"SELECT ({names},) FROM {self.cid} WHERE _draw_idx={idx};"
+        data = self._client.execute(query)
         if not data:
             raise Exception(f"No record found for draw index {idx}.")
         result = dict(zip(var_names, data[0][0]))
