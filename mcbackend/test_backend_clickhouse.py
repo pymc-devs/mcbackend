@@ -253,9 +253,54 @@ class TestClickHouseBackend(CheckBehavior, CheckPerformance):
         assert v1 == 12
         numpy.testing.assert_array_equal(v2, draw["v2"])
         numpy.testing.assert_array_equal(v3, draw["v3"])
+        pass
+
+    @pytest.mark.xfail(reason="issue #56")
+    def test_get_row_at(self):
+        run, chains = fully_initialized(
+            self.backend,
+            make_runmeta(
+                variables=[
+                    Variable("v1", "uint16", []),
+                    Variable("v2", "float32", list((3,))),
+                ],
+            ),
+        )
+        chain = chains[0]
+        for i in range(10):
+            chain.append(dict(v1=i, v2=numpy.array([i, 2, 3])))
+        assert len(chain) == 10
+
+        row5 = chain.get_draws_at(5, ["v1", "v2"])
+        assert "v1" in row5
+        assert "v2" in row5
+        assert row5["v1"] == 5
+        assert tuple(row5["v2"]) == (5, 2, 3)
 
         with pytest.raises(Exception, match="No record found for draw"):
-            chain._get_row_at(2, var_names=["v1"])
+            chain._get_row_at(20, var_names=["v1"])
+
+        # Issue #56 was caused by querying just one variable
+        assert len(chain._get_row_at(5, var_names=["v1"])) == 1
+        pass
+
+    @pytest.mark.xfail(reason="issue #37")
+    def test_exotic_var_names(self):
+        run, chains = fully_initialized(
+            self.backend,
+            make_runmeta(
+                variables=[
+                    Variable("v1[a]", "uint16", []),
+                ],
+            ),
+        )
+        chain = chains[0]
+        for i in range(10):
+            chain.append({var.name: i for var in run.meta.variables})
+        assert len(chain) == 10
+
+        row2 = chain._get_row_at(2, var_names=["v1[a]"])
+        assert "v1[a]" in row2
         pass
 
     def test_to_inferencedata_equalize_chain_lengths(self, caplog):
