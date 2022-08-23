@@ -214,8 +214,9 @@ class ClickHouseChain(Chain):
         slc: slice = slice(None),
     ) -> numpy.ndarray:
         self._commit()
-        where, reverse = where_slice(slc, self._draw_idx)
-        data = self._client.execute(f"SELECT (`{var_name}`) FROM {self.cid} {where};")
+        where, reverse = where_slice(slc, len(self))
+        query = f"SELECT (`{var_name}`) FROM {self.cid} {where};"
+        data = self._client.execute(query)
         draws = len(data)
         if reverse:
             data = reversed(data)
