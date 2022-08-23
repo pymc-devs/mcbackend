@@ -283,7 +283,6 @@ class TestClickHouseBackend(CheckBehavior, CheckPerformance):
         assert len(chain._get_row_at(5, var_names=["v1"])) == 1
         pass
 
-    @pytest.mark.xfail(reason="issue #37")
     def test_exotic_var_names(self):
         run, chains = fully_initialized(
             self.backend,

@@ -164,8 +164,8 @@ class ClickHouseChain(Chain):
         params: Dict[str, Any] = {"_draw_idx": self._draw_idx, **draw, **stat}
         self._draw_idx += 1
         if not self._insert_query:
-            names = ", ".join(params.keys())
-            self._insert_query = f"INSERT INTO {self.cid} ({names}) VALUES"
+            names = "`,`".join(params.keys())
+            self._insert_query = f"INSERT INTO {self.cid} (`{names}`) VALUES"
         self._insert_queue.append(params)
 
         if (
@@ -199,9 +199,9 @@ class ClickHouseChain(Chain):
         var_names: Sequence[str],
     ) -> Dict[str, numpy.ndarray]:
         self._commit()
-        names = ",".join(var_names)
+        names = "`,`".join(var_names)
         # NOTE: The trailing , 👇 is included to get the same signature when len(var_names) == 1.
-        query = f"SELECT ({names},) FROM {self.cid} WHERE _draw_idx={idx};"
+        query = f"SELECT (`{names}`,) FROM {self.cid} WHERE _draw_idx={idx};"
         data = self._client.execute(query)
         if not data:
             raise Exception(f"No record found for draw index {idx}.")
