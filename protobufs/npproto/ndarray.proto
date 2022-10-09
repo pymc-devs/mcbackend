@@ -9,4 +9,5 @@ message ndarray {
     string dtype = 2;
     repeated int64 shape = 3;
     repeated int64 strides = 4;
+    string order = 5;
 }

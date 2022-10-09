@@ -18,3 +18,4 @@ class Ndarray(betterproto.Message):
     dtype: str = betterproto.string_field(2)
     shape: List[int] = betterproto.int64_field(3)
     strides: List[int] = betterproto.int64_field(4)
+    order: str = betterproto.string_field(5)
