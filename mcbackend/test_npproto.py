@@ -31,3 +31,15 @@ class TestUtils:
         result = utils.ndarray_to_numpy(dec)
         numpy.testing.assert_array_equal(result, arr)
         pass
+
+    @pytest.mark.parametrize("shape", [(5,), (2, 3), (2, 3, 5), (5, 2, 1, 7)])
+    @pytest.mark.parametrize("order", "CF")
+    def test_byteorders(self, shape, order):
+        arr = numpy.arange(numpy.prod(shape)).reshape(shape, order=order)
+
+        nda = utils.ndarray_from_numpy(arr)
+        assert nda.order == "CF"[arr.flags.f_contiguous]
+
+        dec = utils.ndarray_to_numpy(nda)
+        numpy.testing.assert_array_equal(arr, dec)
+        pass
