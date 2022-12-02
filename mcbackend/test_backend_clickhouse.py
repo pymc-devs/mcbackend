@@ -13,6 +13,7 @@ from mcbackend.backends.clickhouse import (
     ClickHouseBackend,
     ClickHouseChain,
     ClickHouseRun,
+    column_spec_for,
     create_chain_table,
 )
 from mcbackend.core import Run, chain_id
@@ -25,6 +26,16 @@ try:
     HAS_REAL_DB = True
 except:
     HAS_REAL_DB = False
+
+
+def test_column_spec_for():
+    assert column_spec_for(Variable("A", "float32", [])) == "`A` Float32"
+    assert column_spec_for(Variable("A", "float32", []), is_stat=True) == "`__stat_A` Float32"
+    assert column_spec_for(Variable("A", "float32", [2])) == "`A` Array(Float32)"
+    assert column_spec_for(Variable("A", "float32", [2, 3])) == "`A` Array(Array(Float32))"
+    with pytest.raises(KeyError, match="float16 of 'A'"):
+        column_spec_for(Variable("A", "float16", []))
+    pass
 
 
 def fully_initialized(

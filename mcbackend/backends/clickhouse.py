@@ -49,6 +49,11 @@ def create_runs_table(client: clickhouse_driver.Client):
 
 
 def column_spec_for(var: Variable, is_stat: bool = False):
+    if var.dtype not in CLICKHOUSE_DTYPES:
+        raise KeyError(
+            f"Don't know how to store dtype {var.dtype} "
+            f"of '{var.name}' (is_stat={is_stat}) in ClickHouse."
+        )
     cdt = CLICKHOUSE_DTYPES[var.dtype]
     ndim = len(var.shape)
     for _ in range(ndim):
