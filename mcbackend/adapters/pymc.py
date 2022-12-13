@@ -7,8 +7,14 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 import hagelkorn
 import numpy
-from aesara.graph.basic import Constant
-from aesara.tensor.sharedvar import SharedVariable
+
+try:
+    from pytensor.graph.basic import Constant
+    from pytensor.tensor.sharedvar import SharedVariable
+except ModuleNotFoundError:
+    from aesara.graph.basic import Constant
+    from aesara.tensor.sharedvar import SharedVariable
+
 from pymc.backends.base import BaseTrace
 from pymc.model import Model
 
