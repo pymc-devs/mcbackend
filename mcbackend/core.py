@@ -9,6 +9,7 @@ import numpy
 
 from .meta import ChainMeta, RunMeta, Variable
 from .npproto.utils import ndarray_to_numpy
+from .utils import as_array_from_ragged
 
 InferenceData = TypeVar("InferenceData")
 try:
@@ -252,7 +253,15 @@ class Run:
                 warmup_sample_stats[svar.name].append(stats[tune])
                 sample_stats[svar.name].append(stats[~tune])
 
-        kwargs.setdefault("save_warmup", True)
+        if not equalize_chain_lengths:
+            # Convert ragged arrays to object-dtyped ndarray because NumPy >=1.24.0 no longer does that automatically
+            warmup_posterior = {k: as_array_from_ragged(v) for k, v in warmup_posterior.items()}
+            warmup_sample_stats = {
+                k: as_array_from_ragged(v) for k, v in warmup_sample_stats.items()
+            }
+            posterior = {k: as_array_from_ragged(v) for k, v in posterior.items()}
+            sample_stats = {k: as_array_from_ragged(v) for k, v in sample_stats.items()}
+
         idata = from_dict(
             warmup_posterior=warmup_posterior,
             warmup_sample_stats=warmup_sample_stats,
@@ -263,6 +272,7 @@ class Run:
             attrs=self.meta.attributes,
             constant_data=self.constant_data,
             observed_data=self.observed_data,
+            save_warmup=True,
             **kwargs,
         )
         return idata
