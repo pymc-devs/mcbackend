@@ -272,6 +272,7 @@ class Run:
             attrs=self.meta.attributes,
             constant_data=self.constant_data,
             observed_data=self.observed_data,
+            save_warmup=True,
             **kwargs,
         )
         return idata
