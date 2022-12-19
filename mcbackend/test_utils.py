@@ -10,6 +10,7 @@ import pandas
 import pytest
 
 import mcbackend
+from mcbackend import utils as mutils
 from mcbackend.meta import ChainMeta, DataVariable, RunMeta, Variable
 from mcbackend.npproto import utils
 
@@ -407,3 +408,15 @@ class CheckPerformance(BaseBackendTest, BackendBenchmark):
         speed = self.measure_big_variables()
         assert speed.draws_per_second > 500 or speed.mib_per_second > 5
         pass
+
+
+def test_as_array_from_ragged():
+    even = mutils.as_array_from_ragged(
+        [
+            numpy.ones(2),
+            numpy.ones(3),
+        ]
+    )
+    assert isinstance(even, numpy.ndarray)
+    assert even.dtype == numpy.dtype(object)
+    pass
