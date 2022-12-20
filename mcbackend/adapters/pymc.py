@@ -26,9 +26,7 @@ from ..npproto.utils import ndarray_from_numpy
 
 def find_data(pmodel: Model) -> List[DataVariable]:
     """Extracts data variables from a model."""
-    observed_rvs = {
-        rv.tag.observations for rv in pmodel.observed_RVs if hasattr(rv.tag, "observations")
-    }
+    observed_rvs = {pmodel.rvs_to_values[rv] for rv in pmodel.observed_RVs}
     dvars = []
     # All data containers are named vars!
     for name, var in pmodel.named_vars.items():
@@ -39,7 +37,7 @@ def find_data(pmodel: Model) -> List[DataVariable]:
             dv.value = ndarray_from_numpy(var.get_value())
         else:
             continue
-        dv.dims = list(pmodel.RV_dims.get(name, []))
+        dv.dims = list(pmodel.named_vars_to_dims.get(name, []))
         dv.is_observed = var in observed_rvs
         dvars.append(dv)
     return dvars
@@ -142,7 +140,9 @@ class TraceBackend(BaseTrace):
                     name,
                     str(self.var_dtypes[name]),
                     list(self.var_shapes[name]),
-                    dims=list(self.model.RV_dims[name]) if name in self.model.RV_dims else [],
+                    dims=list(self.model.named_vars_to_dims[name])
+                    if name in self.model.named_vars_to_dims
+                    else [],
                     is_deterministic=(name not in free_rv_names),
                 )
                 for name in self.varnames
