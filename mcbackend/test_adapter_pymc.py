@@ -69,6 +69,7 @@ class TestPyMCAdapter:
         self._client_main.disconnect()
         return
 
+    @pytest.mark.xfail(reason="Warning stats are objects. See #73.")
     @pytest.mark.parametrize("cores", [1, 3])
     def test_cores(self, simple_model, cores):
         backend = ClickHouseBackend(self._client)
@@ -87,13 +88,11 @@ class TestPyMCAdapter:
             trace = TraceBackend(backend)
             idata = pm.sample(
                 trace=trace,
-                tune=3,
-                draws=5,
+                tune=30,
+                draws=50,
                 chains=2,
                 cores=cores,
-                step=pm.Metropolis(),
                 discard_tuned_samples=False,
-                compute_convergence_checks=False,
             )
         if not len(args) == 1:
             _log.warning("Run was initialized multiple times.")
@@ -101,9 +100,9 @@ class TestPyMCAdapter:
 
         # Chain lenghts after conversion
         assert idata.posterior.dims["chain"] == 2
-        assert idata.posterior.dims["draw"] == 5
+        assert idata.posterior.dims["draw"] == 50
         assert idata.warmup_posterior.dims["chain"] == 2
-        assert idata.warmup_posterior.dims["draw"] == 3
+        assert idata.warmup_posterior.dims["draw"] == 30
 
         # Tracking of named variable dimensions
         vars = {var.name: var for var in rmeta.variables}
