@@ -11,7 +11,7 @@ from mcbackend.npproto.utils import ndarray_to_numpy
 
 from .adapters.pymc import TraceBackend, find_data
 from .backends.clickhouse import ClickHouseBackend
-from .test_backend_clickhouse import HAS_REAL_DB
+from .test_backend_clickhouse import DB_KWARGS, HAS_REAL_DB
 
 _log = logging.getLogger(__file__)
 
@@ -57,9 +57,9 @@ class TestPyMCAdapter:
     def setup_method(self, method):
         """Initializes a fresh database just for this test method."""
         self._db = "testing_" + hagelkorn.random()
-        self._client_main = clickhouse_driver.Client("localhost")
+        self._client_main = clickhouse_driver.Client(**DB_KWARGS)
         self._client_main.execute(f"CREATE DATABASE {self._db};")
-        self._client = clickhouse_driver.Client("localhost", database=self._db)
+        self._client = clickhouse_driver.Client(**DB_KWARGS, database=self._db)
         self.backend = ClickHouseBackend(self._client)
         return
 
