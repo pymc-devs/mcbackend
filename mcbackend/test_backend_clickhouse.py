@@ -271,6 +271,30 @@ class TestClickHouseBackend(CheckBehavior, CheckPerformance):
         numpy.testing.assert_array_equal(v3, draw["v3"])
         pass
 
+    @pytest.mark.xfail(
+        reason="Batch inserting assumes identical dict composition every time. See #74."
+    )
+    def test_insert_flaky_stats(self):
+        """Tries to append stats that only sometimes have an entry for a stat."""
+        run, chains = fully_initialized(
+            self.backend,
+            RunMeta(
+                sample_stats=[
+                    Variable("always", "int8"),
+                    Variable("sometimes", "bool"),
+                ]
+            ),
+        )
+
+        chain = chains[0]
+        chain.append({}, dict(always=1, sometimes=True))
+        chain.append({}, dict(always=2))
+        chain._commit()
+
+        tuple(chain.get_stats("always")) == (1, 2)
+        assert tuple(chain.get_stats("sometimes")) == (True, None)
+        pass
+
     def test_get_row_at(self):
         run, chains = fully_initialized(
             self.backend,
