@@ -202,7 +202,7 @@ class TestClickHouseBackend(CheckBehavior, CheckPerformance):
             ("scalar", "UInt16"),
             ("1D", "Array(Float32)"),
             ("3D", "Array(Array(Array(Float64)))"),
-            ("__stat_accepted", "UInt8"),
+            ("__stat_accepted", "Bool"),
         ]
         pass
 

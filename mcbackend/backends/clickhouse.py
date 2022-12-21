@@ -29,7 +29,7 @@ CLICKHOUSE_DTYPES = {
     "int64": "Int64",
     "float32": "Float32",
     "float64": "Float64",
-    "bool": "UInt8",
+    "bool": "Bool",
     "str": "String",
 }
 
