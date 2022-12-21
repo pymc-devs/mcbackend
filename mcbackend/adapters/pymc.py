@@ -3,6 +3,8 @@ This module implements an adapter to use any ``mcbackend.Backend`` as a PyMC ``B
 
 The only PyMC dependency is on the ``BaseTrace`` abstract base class.
 """
+import base64
+import pickle
 from typing import Dict, List, Optional, Sequence, Tuple
 
 import hagelkorn
@@ -159,12 +161,16 @@ class TraceBackend(BaseTrace):
                     self._stat_groups.append([])
                     for statname, dtype in names_dtypes.items():
                         sname = f"sampler_{s}__{statname}"
-                        svar = Variable(
-                            name=sname,
-                            dtype=numpy.dtype(dtype).name,
-                            # This 👇 is needed until PyMC provides shapes ahead of time.
-                            undefined_ndim=True,
-                        )
+                        if statname == "warning":
+                            # SamplerWarnings will be pickled and stored as string!
+                            svar = Variable(sname, "str")
+                        else:
+                            svar = Variable(
+                                name=sname,
+                                dtype=numpy.dtype(dtype).name,
+                                # This 👇 is needed until PyMC provides shapes ahead of time.
+                                undefined_ndim=True,
+                            )
                         self._stat_groups[s].append((sname, statname))
                         sample_stats.append(svar)
 
@@ -197,8 +203,12 @@ class TraceBackend(BaseTrace):
             for s, sts in enumerate(sampler_states):
                 for statname, sval in sts.items():
                     sname = f"sampler_{s}__{statname}"
-                    stats[sname] = sval
-                    # Make not whether this is a tuning iteration.
+                    # Automatically pickle SamplerWarnings
+                    if statname == "warning":
+                        sval_bytes = pickle.dumps(sval)
+                        sval = base64.encodebytes(sval_bytes).decode("ascii")
+                    stats[sname] = numpy.asarray(sval)
+                    # Make note whether this is a tuning iteration.
                     if statname == "tune":
                         stats["tune"] = sval
 
@@ -214,7 +224,16 @@ class TraceBackend(BaseTrace):
     def _get_stats(self, varname, burn=0, thin=1) -> numpy.ndarray:
         if self._chain is None:
             raise Exception("Trace setup was not completed. Call `.setup()` first.")
-        return self._chain.get_stats(varname)[burn::thin]
+        values = self._chain.get_stats(varname)[burn::thin]
+        if "warning" in varname:
+            objs = []
+            for v in values:
+                enc = v.encode("ascii")
+                str_ = base64.decodebytes(enc)
+                obj = pickle.loads(str_)
+                objs.append(obj)
+            values = numpy.array(objs, dtype=object)
+        return values
 
     def _get_sampler_stats(self, stat_name, sampler_idx, burn, thin):
         if self._chain is None:

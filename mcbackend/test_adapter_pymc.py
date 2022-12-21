@@ -69,7 +69,6 @@ class TestPyMCAdapter:
         self._client_main.disconnect()
         return
 
-    @pytest.mark.xfail(reason="Warning stats are objects. See #73.")
     @pytest.mark.parametrize("cores", [1, 3])
     def test_cores(self, simple_model, cores):
         backend = ClickHouseBackend(self._client)
