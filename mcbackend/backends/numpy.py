@@ -65,7 +65,7 @@ class NumPyChain(Chain):
             (self._stats, self._stat_is_rigid, rmeta.sample_stats),
         ]:
             for var in variables:
-                rigid = is_rigid(var.shape) and not var.undefined_ndim
+                rigid = is_rigid(var.shape) and not var.undefined_ndim and var.dtype != "str"
                 rigid_dict[var.name] = rigid
                 if preallocate > 0 and rigid:
                     reserve = (preallocate, *var.shape)
@@ -88,13 +88,19 @@ class NumPyChain(Chain):
         return self._draw_idx
 
     def get_draws(self, var_name: str, slc: slice = slice(None)) -> numpy.ndarray:
-        return self._samples[var_name][: self._draw_idx][slc]
+        data = self._samples[var_name][: self._draw_idx][slc]
+        if self.variables[var_name].dtype == "str":
+            return numpy.array(data.tolist(), dtype=str)
+        return data
 
     def get_draws_at(self, idx: int, var_names: Sequence[str]) -> Dict[str, numpy.ndarray]:
         return {vn: numpy.asarray(self._samples[vn][idx]) for vn in var_names}
 
     def get_stats(self, stat_name: str, slc: slice = slice(None)) -> numpy.ndarray:
-        return self._stats[stat_name][: self._draw_idx][slc]
+        data = self._stats[stat_name][: self._draw_idx][slc]
+        if self.sample_stats[stat_name].dtype == "str":
+            return numpy.array(data.tolist(), dtype=str)
+        return data
 
     def get_stats_at(self, idx: int, stat_names: Sequence[str]) -> Dict[str, numpy.ndarray]:
         return {sn: numpy.asarray(self._stats[sn][idx]) for sn in stat_names}

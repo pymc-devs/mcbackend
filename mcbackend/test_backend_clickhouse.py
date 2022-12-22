@@ -1,5 +1,6 @@
 import base64
 import logging
+import os
 from datetime import datetime, timezone
 from typing import Sequence, Tuple
 
@@ -21,7 +22,11 @@ from mcbackend.meta import ChainMeta, RunMeta, Variable
 from mcbackend.test_utils import CheckBehavior, CheckPerformance, make_runmeta
 
 try:
-    client = clickhouse_driver.Client("localhost")
+    DB_HOST = os.environ.get("CLICKHOUSE_HOST", "localhost")
+    DB_PASS = os.environ.get("CLICKHOUSE_PASS", "")
+    DB_PORT = os.environ.get("CLICKHOUSE_PORT", 9000)
+    DB_KWARGS = dict(host=DB_HOST, port=DB_PORT, password=DB_PASS)
+    client = clickhouse_driver.Client(**DB_KWARGS)
     client.execute("SHOW DATABASES;")
     HAS_REAL_DB = True
 except:
@@ -51,7 +56,7 @@ def fully_initialized(
 
 @pytest.mark.skipif(
     condition=not HAS_REAL_DB,
-    reason="Integration tests need a ClickHouse server on localhost:9000 without authentication.",
+    reason="Integration tests need a ClickHouse server.",
 )
 class TestClickHouseBackendInitialization:
     """This is separate because ``TestClickHouseBackend.setup_method`` depends on these things."""
@@ -63,12 +68,12 @@ class TestClickHouseBackendInitialization:
 
     def test_backend_from_client_object(self):
         db = "testing_" + hagelkorn.random()
-        _client_main = clickhouse_driver.Client("localhost")
+        _client_main = clickhouse_driver.Client(**DB_KWARGS)
         _client_main.execute(f"CREATE DATABASE {db};")
 
         try:
             # When created from a client object, all chains share the client
-            backend = ClickHouseBackend(client=clickhouse_driver.Client("localhost", database=db))
+            backend = ClickHouseBackend(client=clickhouse_driver.Client(**DB_KWARGS, database=db))
             assert callable(backend._client_fn)
             run = backend.init_run(make_runmeta())
             c1 = run.init_chain(0)
@@ -81,11 +86,11 @@ class TestClickHouseBackendInitialization:
 
     def test_backend_from_client_function(self):
         db = "testing_" + hagelkorn.random()
-        _client_main = clickhouse_driver.Client("localhost")
+        _client_main = clickhouse_driver.Client(**DB_KWARGS)
         _client_main.execute(f"CREATE DATABASE {db};")
 
         def client_fn():
-            return clickhouse_driver.Client("localhost", database=db)
+            return clickhouse_driver.Client(**DB_KWARGS, database=db)
 
         try:
             # When created from a client function, each chain has its own client
@@ -108,7 +113,7 @@ class TestClickHouseBackendInitialization:
 
 @pytest.mark.skipif(
     condition=not HAS_REAL_DB,
-    reason="Integration tests need a ClickHouse server on localhost:9000 without authentication.",
+    reason="Integration tests need a ClickHouse server.",
 )
 class TestClickHouseBackend(CheckBehavior, CheckPerformance):
     cls_backend = ClickHouseBackend
@@ -118,11 +123,11 @@ class TestClickHouseBackend(CheckBehavior, CheckPerformance):
     def setup_method(self, method):
         """Initializes a fresh database just for this test method."""
         self._db = "testing_" + hagelkorn.random()
-        self._client_main = clickhouse_driver.Client("localhost")
+        self._client_main = clickhouse_driver.Client(**DB_KWARGS)
         self._client_main.execute(f"CREATE DATABASE {self._db};")
-        self._client = clickhouse_driver.Client("localhost", database=self._db)
+        self._client = clickhouse_driver.Client(**DB_KWARGS, database=self._db)
         self.backend = ClickHouseBackend(
-            client_fn=lambda: clickhouse_driver.Client("localhost", database=self._db)
+            client_fn=lambda: clickhouse_driver.Client(**DB_KWARGS, database=self._db)
         )
         return
 
@@ -197,7 +202,7 @@ class TestClickHouseBackend(CheckBehavior, CheckPerformance):
             ("scalar", "UInt16"),
             ("1D", "Array(Float32)"),
             ("3D", "Array(Array(Array(Float64)))"),
-            ("__stat_accepted", "UInt8"),
+            ("__stat_accepted", "Bool"),
         ]
         pass
 
@@ -264,6 +269,30 @@ class TestClickHouseBackend(CheckBehavior, CheckPerformance):
         assert v1 == 12
         numpy.testing.assert_array_equal(v2, draw["v2"])
         numpy.testing.assert_array_equal(v3, draw["v3"])
+        pass
+
+    @pytest.mark.xfail(
+        reason="Batch inserting assumes identical dict composition every time. See #74."
+    )
+    def test_insert_flaky_stats(self):
+        """Tries to append stats that only sometimes have an entry for a stat."""
+        run, chains = fully_initialized(
+            self.backend,
+            RunMeta(
+                sample_stats=[
+                    Variable("always", "int8"),
+                    Variable("sometimes", "bool"),
+                ]
+            ),
+        )
+
+        chain = chains[0]
+        chain.append({}, dict(always=1, sometimes=True))
+        chain.append({}, dict(always=2))
+        chain._commit()
+
+        tuple(chain.get_stats("always")) == (1, 2)
+        assert tuple(chain.get_stats("sometimes")) == (True, None)
         pass
 
     def test_get_row_at(self):

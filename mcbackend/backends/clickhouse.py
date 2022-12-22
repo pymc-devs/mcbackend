@@ -29,7 +29,8 @@ CLICKHOUSE_DTYPES = {
     "int64": "Int64",
     "float32": "Float32",
     "float64": "Float64",
-    "bool": "UInt8",
+    "bool": "Bool",
+    "str": "String",
 }
 
 
@@ -155,6 +156,7 @@ class ClickHouseChain(Chain):
         self._client = client
         # The following attributes belong to the batched insert mechanism.
         # Inserting in batches is much faster than inserting single rows.
+        self._str_cols = set()
         self._insert_query: str = ""
         self._insert_queue: List[Dict[str, Any]] = []
         self._last_insert = time.time()
@@ -166,12 +168,22 @@ class ClickHouseChain(Chain):
         self, draw: Dict[str, numpy.ndarray], stats: Optional[Dict[str, numpy.ndarray]] = None
     ):
         stat = {f"__stat_{sname}": svals for sname, svals in (stats or {}).items()}
-        params: Dict[str, Any] = {"_draw_idx": self._draw_idx, **draw, **stat}
-        self._draw_idx += 1
+        params: Dict[str, numpy.ndarray] = {**draw, **stat}
+
+        # On first append create a query to be used for the batched insert
         if not self._insert_query:
             names = "`,`".join(params.keys())
-            self._insert_query = f"INSERT INTO {self.cid} (`{names}`) VALUES"
+            self._insert_query = f"INSERT INTO {self.cid} (`_draw_idx`,`{names}`) VALUES"
+            self._str_cols = {k for k, v in params.items() if "str" in numpy.asarray(v).dtype.name}
+
+        # Convert str ndarrays to lists
+        for col in self._str_cols:
+            params[col] = params[col].tolist()
+
+        # Queue up for insertion
+        params["_draw_idx"] = self._draw_idx
         self._insert_queue.append(params)
+        self._draw_idx += 1
 
         if (
             len(self._insert_queue) >= self._insert_every
@@ -235,7 +247,9 @@ class ClickHouseChain(Chain):
             return numpy.array([], dtype=object)
 
         # The unpacking must also account for non-rigid shapes
-        if is_rigid(nshape):
+        # and str-dtyped empty arrays default to fixed length 1 strings.
+        # The [None] list is slower, but more flexible in this regard.
+        if is_rigid(nshape) and dtype != "str":
             assert nshape is not None
             buffer = numpy.empty((draws, *nshape), dtype)
         else:

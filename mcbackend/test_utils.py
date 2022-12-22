@@ -29,6 +29,8 @@ def make_runmeta(*, flexibility: bool = False, **kwargs) -> RunMeta:
             Variable("accepted", "bool", list((3,)), dims=["sampler"]),
             # But some stats may refer to the iteration.
             Variable("logp", "float64", []),
+            # String dtypes may be used for more complex information
+            Variable("message", "str"),
         ],
         data=[
             DataVariable(
@@ -60,8 +62,16 @@ def make_draw(variables: Sequence[Variable]):
         )
         if "float" in var.dtype:
             draw[var.name] = numpy.random.normal(size=dshape).astype(var.dtype)
+        elif var.dtype == "str":
+            alphabet = tuple("abcdef#+*/'")
+            words = [
+                "".join(numpy.random.choice(alphabet, size=numpy.random.randint(3, 10)))
+                for _ in range(int(numpy.prod(dshape)))
+            ]
+            draw[var.name] = numpy.array(words, dtype=var.dtype).reshape(dshape)
         else:
             draw[var.name] = numpy.random.randint(low=0, high=100, size=dshape).astype(var.dtype)
+        assert draw[var.name].shape == dshape
     return draw
 
 
@@ -149,7 +159,7 @@ class CheckBehavior(BaseBackendTest):
             expected = [draw[var.name] for draw in draws]
             actual = chain.get_draws(var.name)
             assert isinstance(actual, numpy.ndarray)
-            if var.name == "changeling":
+            if not is_rigid(var.shape) or var.dtype == "str":
                 # Non-ridid variables are returned as object-arrays.
                 assert actual.shape == (len(expected),)
                 assert actual.dtype == object
@@ -166,9 +176,13 @@ class CheckBehavior(BaseBackendTest):
                 expected = [stat[var.name] for stat in stats]
                 actual = chain.get_stats(var.name)
                 assert isinstance(actual, numpy.ndarray)
-                if is_rigid(var.shape):
+                if var.dtype == "str":
                     assert tuple(actual.shape) == tuple(numpy.shape(expected))
-                    assert actual.dtype == var.dtype
+                    # String dtypes have strange names
+                    assert "str" in actual.dtype.name
+                elif is_rigid(var.shape):
+                    assert tuple(actual.shape) == tuple(numpy.shape(expected))
+                    assert actual.dtype.name == var.dtype
                     numpy.testing.assert_array_equal(actual, expected)
                 else:
                     # Non-ridid variables are returned as object-arrays.
@@ -200,7 +214,7 @@ class CheckBehavior(BaseBackendTest):
         # "A" are just numbers to make diagnosis easier.
         # "B" are dynamically shaped to cover the edge cases.
         rmeta = RunMeta(
-            variables=[Variable("A", "uint8")],
+            variables=[Variable("A", "uint8"), Variable("M", "str", [2, 3])],
             sample_stats=[Variable("B", "uint8", [2, 0])],
             data=[],
         )
@@ -209,7 +223,7 @@ class CheckBehavior(BaseBackendTest):
 
         # Generate draws and add them to the chain
         N = 20
-        draws = [dict(A=n) for n in range(N)]
+        draws = [make_draw(rmeta.variables) for n in range(N)]
         stats = [make_draw(rmeta.sample_stats) for n in range(N)]
         for d, s in zip(draws, stats):
             chain.append(d, s)
@@ -218,12 +232,25 @@ class CheckBehavior(BaseBackendTest):
         # slc=None in this test means "don't pass it".
         # The implementations should default to slc=slice(None, None, None).
         kwargs = dict(slc=slc) if slc is not None else {}
-        act_draws = chain.get_draws("A", **kwargs)
+        act_draws_A = chain.get_draws("A", **kwargs)
+        act_draws_M = chain.get_draws("M", **kwargs)
         act_stats = chain.get_stats("B", **kwargs)
-        expected_draws = [d["A"] for d in draws][slc or slice(None, None, None)]
+        expected_draws_A = [d["A"] for d in draws][slc or slice(None, None, None)]
+        expected_draws_M = [d["M"] for d in draws][slc or slice(None, None, None)]
         expected_stats = [s["B"] for s in stats][slc or slice(None, None, None)]
+
         # Variable "A" has a rigid shape
-        numpy.testing.assert_array_equal(act_draws, expected_draws)
+        if expected_draws_A:
+            numpy.testing.assert_array_equal(act_draws_A, expected_draws_A)
+        else:
+            assert len(act_draws_A) == 0
+
+        # Variable "M" is a string matrix
+        if expected_draws_M:
+            numpy.testing.assert_array_equal(act_draws_M, expected_draws_M)
+        else:
+            assert len(act_draws_M) == 0
+
         # Stat "B" is dynamically shaped, which means we're dealing with
         # dtype=object arrays. These must be checked elementwise.
         assert len(act_stats) == len(expected_stats)
@@ -256,6 +283,7 @@ class CheckBehavior(BaseBackendTest):
             sample_stats=[
                 Variable("tune", "bool"),
                 Variable("sampler_0__logp", "float32"),
+                Variable("warning", "str"),
             ],
         )
         run = self.backend.init_run(rmeta)
