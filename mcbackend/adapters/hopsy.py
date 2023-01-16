@@ -10,7 +10,7 @@ from mcbackend.meta import Coordinate, DataVariable, Variable
 from ..core import Backend, Chain, Run, RunMeta
 
 
-class TraceBackend(hopsy.BaseTrace):
+class TraceBackend(hopsy.Backend):
     """Adapter to create a hospy backend from any McBackend."""
 
     supports_sampler_stats = True
