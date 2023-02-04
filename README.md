@@ -130,7 +130,7 @@ Some tests need a ClickHouse database server running locally.
 To start one in Docker:
 
 ```bash
-docker run --detach --rm --name mcbackend-db -p 9000:9000 --ulimit nofile=262144:262144 yandex/clickhouse-server
+docker run --detach --rm --name mcbackend-db -p 9000:9000 --ulimit nofile=262144:262144 clickhouse/clickhouse-server
 ```
 
 ### Compiling the ProtocolBuffers
@@ -146,43 +146,4 @@ It also copies the generated files to the right place in `mcbackend`.
 
 ```bash
 python protobufs/generate.py
-```
-
-# Experimental: `mcbackend-server`
-This repository also includes an experimental Streamlit app for querying the ClickHouse backend and creating ArviZ plots already while an MCMC is still running.
-
-⚠ This part will eventually move into its own repository. ⚠
-
-First build the Docker image:
-
-```
-docker build -t mcbackend-server:0.1.0 .
-```
-
-Then start the container.
-The following two commands should be executed in the root path of the repository.
-
-⚠ You may need to adapt the hostname line. ⚠
-
-On Windows:
-```
-docker run ^
-  --rm --name mcbackend-server ^
-  -p 8501:8501 ^
-  -e DB_HOST=%COMPUTERNAME% ^
-  -v %cd%:/mcbackend ^
-  -v %cd%/mcbackend-server/app.py:/mcbackend-server/app.py ^
-  mcbackend-server:0.1.0
-```
-
-
-On Linux:
-```
-docker run \
-  --rm --name mcbackend-server \
-  -p 8501:8501 \
-  -e DB_HOST=$hostname \
-  -v $pwd:/mcbackend \
-  -v $pwd/mcbackend-server/app.py:/mcbackend-server/app.py \
-  mcbackend-server:0.1.0
 ```
