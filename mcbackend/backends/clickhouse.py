@@ -5,7 +5,18 @@ import base64
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    Union,
+)
 
 import clickhouse_driver
 import numpy
@@ -156,7 +167,7 @@ class ClickHouseChain(Chain):
         self._client = client
         # The following attributes belong to the batched insert mechanism.
         # Inserting in batches is much faster than inserting single rows.
-        self._str_cols = set()
+        self._str_cols: Set[str] = set()
         self._insert_query: str = ""
         self._insert_queue: List[Dict[str, Any]] = []
         self._last_insert = time.time()
@@ -176,13 +187,16 @@ class ClickHouseChain(Chain):
             self._insert_query = f"INSERT INTO {self.cid} (`_draw_idx`,`{names}`) VALUES"
             self._str_cols = {k for k, v in params.items() if "str" in numpy.asarray(v).dtype.name}
 
-        # Convert str ndarrays to lists
+        params_ins: Dict[str, Union[numpy.ndarray, int, float, List[str]]] = {
+            "_draw_idx": self._draw_idx,
+            **params,
+        }
+        # Convert str-dtyped ndarrays to lists
         for col in self._str_cols:
-            params[col] = params[col].tolist()
+            params_ins[col] = params[col].tolist()
 
         # Queue up for insertion
-        params["_draw_idx"] = self._draw_idx
-        self._insert_queue.append(params)
+        self._insert_queue.append(params_ins)
         self._draw_idx += 1
 
         if (
@@ -242,13 +256,14 @@ class ClickHouseChain(Chain):
 
         # Without draws return empty arrays of the correct shape/dtype
         if not draws:
-            if is_rigid(nshape):
-                return numpy.empty(shape=[0] + nshape, dtype=dtype)
+            if is_rigid(nshape) and nshape is not None:
+                return numpy.empty(shape=[0, *nshape], dtype=dtype)
             return numpy.array([], dtype=object)
 
         # The unpacking must also account for non-rigid shapes
         # and str-dtyped empty arrays default to fixed length 1 strings.
         # The [None] list is slower, but more flexible in this regard.
+        buffer: Union[numpy.ndarray, Sequence]
         if is_rigid(nshape) and dtype != "str":
             assert nshape is not None
             buffer = numpy.empty((draws, *nshape), dtype)
@@ -292,7 +307,7 @@ class ClickHouseRun(Run):
         self,
         meta: RunMeta,
         *,
-        created_at: datetime = None,
+        created_at: Optional[datetime] = None,
         client_fn: Callable[[], clickhouse_driver.Client],
     ) -> None:
         self._client_fn = client_fn
@@ -331,8 +346,8 @@ class ClickHouseBackend(Backend):
 
     def __init__(
         self,
-        client: clickhouse_driver.Client = None,
-        client_fn: Callable[[], clickhouse_driver.Client] = None,
+        client: Optional[clickhouse_driver.Client] = None,
+        client_fn: Optional[Callable[[], clickhouse_driver.Client]] = None,
     ):
         """Create a ClickHouse backend around a database client.
 
