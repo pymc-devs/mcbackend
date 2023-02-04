@@ -72,10 +72,10 @@ class TestChain:
 
     def test_chain_length(self):
         class _TestChain(core.Chain):
-            def get_draws(self, var_name: str):
+            def get_draws(self, var_name: str, slc: slice = slice(None)):
                 return numpy.arange(12)
 
-            def get_stats(self, stat_name: str):
+            def get_stats(self, stat_name: str, slc: slice = slice(None)):
                 return numpy.arange(42)
 
         rmeta = RunMeta("test", variables=[Variable("v1")])

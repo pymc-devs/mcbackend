@@ -1,7 +1,7 @@
 import random
 import time
 from dataclasses import dataclass
-from typing import Sequence
+from typing import Optional, Sequence
 
 import arviz
 import hagelkorn
@@ -78,9 +78,9 @@ def make_draw(variables: Sequence[Variable]):
 class BaseBackendTest:
     """Can be used to test different backends in the same way."""
 
-    cls_backend = None
-    cls_run = None
-    cls_chain = None
+    cls_backend: Optional[type] = None
+    cls_run: Optional[type] = None
+    cls_chain: Optional[type] = None
 
     def setup_method(self, method):
         """Override this when the backend has no parameterless constructor."""
@@ -373,10 +373,8 @@ class BackendBenchmark:
         for attr in dir(BackendBenchmark):
             meth = getattr(self, attr, None)
             if callable(meth) and meth.__name__.startswith("measure_"):
-                try:
+                if hasattr(self, "setup_method"):
                     self.setup_method(meth)
-                except TypeError:
-                    pass
                 print(f"Running {meth.__name__}")
                 speed = meth()
                 df.loc[meth.__name__[8:], ["bytes_per_draw", "append_speed", "description"]] = (
