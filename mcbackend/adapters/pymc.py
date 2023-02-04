@@ -9,16 +9,10 @@ from typing import List, Mapping, Optional, Sequence, Tuple, Union
 
 import hagelkorn
 import numpy
-
-try:
-    from pytensor.graph.basic import Constant
-    from pytensor.tensor.sharedvar import SharedVariable
-except ModuleNotFoundError:
-    from aesara.graph.basic import Constant
-    from aesara.tensor.sharedvar import SharedVariable
-
 from pymc.backends.base import BaseTrace
 from pymc.model import Model
+from pytensor.graph.basic import Constant
+from pytensor.tensor.sharedvar import SharedVariable
 
 from mcbackend.meta import Coordinate, DataVariable, Variable
 
