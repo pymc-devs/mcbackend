@@ -5,7 +5,7 @@ import base64
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
 import clickhouse_driver
 import numpy
@@ -165,7 +165,7 @@ class ClickHouseChain(Chain):
         super().__init__(cmeta, rmeta)
 
     def append(
-        self, draw: Dict[str, numpy.ndarray], stats: Optional[Dict[str, numpy.ndarray]] = None
+        self, draw: Mapping[str, numpy.ndarray], stats: Optional[Mapping[str, numpy.ndarray]] = None
     ):
         stat = {f"__stat_{sname}": svals for sname, svals in (stats or {}).items()}
         params: Dict[str, numpy.ndarray] = {**draw, **stat}
