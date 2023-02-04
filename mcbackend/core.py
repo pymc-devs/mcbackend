@@ -3,7 +3,16 @@ Module with metadata structures and abstract classes.
 """
 import collections
 import logging
-from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Sized, TypeVar
+from typing import (
+    TYPE_CHECKING,
+    Dict,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Sized,
+    TypeVar,
+)
 
 import numpy
 
@@ -58,7 +67,7 @@ class Chain(Sized):
         super().__init__()
 
     def append(
-        self, draw: Dict[str, numpy.ndarray], stats: Optional[Dict[str, numpy.ndarray]] = None
+        self, draw: Mapping[str, numpy.ndarray], stats: Optional[Mapping[str, numpy.ndarray]] = None
     ):
         """Appends an iteration to the chain.
 
