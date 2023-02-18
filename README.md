@@ -136,6 +136,7 @@ docker run --detach --rm --name mcbackend-db -p 9000:9000 --ulimit nofile=262144
 If you don't already have it, first install the protobuf compiler:
 ```bash
 conda install protobuf
+pip install --pre "betterproto[compiler]"
 ```
 
 To compile the `*.proto` files for languages other than Python, check the [ProtocolBuffers documentation](https://developers.google.com/protocol-buffers/docs/tutorials).
