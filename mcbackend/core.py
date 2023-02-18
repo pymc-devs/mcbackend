@@ -32,12 +32,12 @@ def is_rigid(nshape: Optional[Shape]):
         This "nullable shape" is interpreted as follows:
         - ``[]`` indicates scalar shape (rigid: True).
         - ``[2, 3]`` indicates a matrix with 2 rows and 3 columns (rigid: True).
-        - ``[2, 0]`` indicates a matrix with 2 rows and dynamic number of columns (rigid: False).
+        - ``[2, -1]`` indicates a matrix with 2 rows and dynamic number of columns (rigid: False).
         - ``None`` indicates dynamic dimensionality (rigid: False).
     """
     if nshape is None:
         return False
-    if any(s == 0 for s in nshape):
+    if any(s == -1 for s in nshape):
         return False
     return True
 

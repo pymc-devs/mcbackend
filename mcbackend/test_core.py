@@ -1,7 +1,6 @@
 from datetime import datetime, timezone
 
 import numpy
-import pytest
 
 from mcbackend.meta import ChainMeta, RunMeta, Variable
 from mcbackend.test_utils import make_runmeta
@@ -12,9 +11,10 @@ from . import core
 def test_is_rigid():
     assert core.is_rigid([])
     assert core.is_rigid([1, 2])
+    assert core.is_rigid([1, 0])
     assert not core.is_rigid(None)
-    assert not core.is_rigid((0,))
-    assert not core.is_rigid([1, 0, 2])
+    assert not core.is_rigid((-1,))
+    assert not core.is_rigid([1, -1, 2])
     pass
 
 
