@@ -21,7 +21,7 @@ class TestNumPyBackend(CheckBehavior, CheckPerformance):
             variables=[
                 Variable("tensor", "int8", (3, 4, 5)),
                 Variable("scalar", "float64", ()),
-                Variable("changeling", "uint16", (3, 0)),
+                Variable("changeling", "uint16", (3, -1)),
             ],
         )
         run = imb.init_run(rm)
@@ -56,7 +56,7 @@ class TestNumPyBackend(CheckBehavior, CheckPerformance):
                 Variable(
                     "B",
                     "float32",
-                    (0,),
+                    (-1,),
                 ),
             ],
         )

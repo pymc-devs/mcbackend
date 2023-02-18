@@ -57,7 +57,7 @@ def make_draw(variables: Sequence[Variable]):
     for var in variables:
         dshape = tuple(
             # A pre-registered dim length of 0 means that it's random!
-            s or random.randint(0, 10)
+            (random.randint(0, 10) if s == -1 else s)
             for s in var.shape
         )
         if "float" in var.dtype:
@@ -215,7 +215,7 @@ class CheckBehavior(BaseBackendTest):
         # "B" are dynamically shaped to cover the edge cases.
         rmeta = RunMeta(
             variables=[Variable("A", "uint8"), Variable("M", "str", [2, 3])],
-            sample_stats=[Variable("B", "uint8", [2, 0])],
+            sample_stats=[Variable("B", "uint8", [2, -1])],
             data=[],
         )
         run = self.backend.init_run(rmeta)

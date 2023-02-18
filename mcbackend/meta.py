@@ -32,7 +32,7 @@ class Variable(betterproto.Message):
     dtype: str = betterproto.string_field(2)
     """Data type (lowercase)."""
 
-    shape: List[int] = betterproto.uint64_field(3)
+    shape: List[int] = betterproto.int64_field(3)
     """
     The shape tuple. May contain 0es for dynamically sized dimensions. The
     default value, an empty sequence, corresponds to scalar shape. Note that
