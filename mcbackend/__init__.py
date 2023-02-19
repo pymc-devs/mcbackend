@@ -12,12 +12,4 @@ try:
 except ModuleNotFoundError:
     pass
 
-# Adapters
-try:
-    from .adapters import pymc
-    from .adapters.pymc import TraceBackend
-except ModuleNotFoundError:
-    pass
-
-
 __version__ = "0.4.0"
