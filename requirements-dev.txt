@@ -6,4 +6,4 @@ pytest
 pytest-cov
 twine
 wheel
-hopsy=1.2
+hopsy>=1.2.0
