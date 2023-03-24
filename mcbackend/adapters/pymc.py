@@ -5,20 +5,14 @@ The only PyMC dependency is on the ``BaseTrace`` abstract base class.
 """
 import base64
 import pickle
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import List, Mapping, Optional, Sequence, Tuple, Union
 
 import hagelkorn
 import numpy
-
-try:
-    from pytensor.graph.basic import Constant
-    from pytensor.tensor.sharedvar import SharedVariable
-except ModuleNotFoundError:
-    from aesara.graph.basic import Constant
-    from aesara.tensor.sharedvar import SharedVariable
-
 from pymc.backends.base import BaseTrace
 from pymc.model import Model
+from pytensor.graph.basic import Constant
+from pytensor.tensor.sharedvar import SharedVariable
 
 from mcbackend.meta import Coordinate, DataVariable, Variable
 
@@ -59,8 +53,8 @@ class ReadOnlyTrace(BaseTrace):
         *,
         from_trace: BaseTrace,
         length: int,
-        draws: Dict[str, numpy.ndarray],
-        stats: Sequence[Dict[str, numpy.ndarray]],
+        draws: Mapping[str, numpy.ndarray],
+        stats: Sequence[Mapping[str, numpy.ndarray]],
     ):
         self._length = length
         self._draws = draws
@@ -105,7 +99,7 @@ class TraceBackend(BaseTrace):
         self,
         backend: Backend,
         *,
-        name: str = None,
+        name: Optional[str] = None,
         model=None,
         vars=None,
         test_point=None,
@@ -129,7 +123,7 @@ class TraceBackend(BaseTrace):
         self,
         draws: int,
         chain: int,
-        sampler_vars: Optional[List[Dict[str, numpy.dtype]]] = None,
+        sampler_vars: Optional[Sequence[Mapping[str, Union[type, numpy.dtype]]]] = None,
     ) -> None:
         super().setup(draws, chain, sampler_vars)
         self.chain = chain

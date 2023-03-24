@@ -2,7 +2,7 @@
 This backend holds draws in memory, managing them via NumPy arrays.
 """
 import math
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
 import numpy
 
@@ -12,8 +12,8 @@ from ..meta import ChainMeta, RunMeta
 
 def grow_append(
     storage_dict: Dict[str, numpy.ndarray],
-    values: Dict[str, numpy.ndarray],
-    rigid: Dict[str, bool],
+    values: Mapping[str, numpy.ndarray],
+    rigid: Mapping[str, bool],
     draw_idx: int,
 ):
     """Writes values into storage arrays, growing them if needed."""
@@ -76,7 +76,7 @@ class NumPyChain(Chain):
         super().__init__(cmeta, rmeta)
 
     def append(
-        self, draw: Dict[str, numpy.ndarray], stats: Optional[Dict[str, numpy.ndarray]] = None
+        self, draw: Mapping[str, numpy.ndarray], stats: Optional[Mapping[str, numpy.ndarray]] = None
     ):
         grow_append(self._samples, draw, self._var_is_rigid, self._draw_idx)
         if stats:

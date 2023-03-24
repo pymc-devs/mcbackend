@@ -3,7 +3,7 @@ Module with metadata structures and abstract classes.
 """
 import collections
 import logging
-from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Sized, TypeVar
+from typing import Dict, List, Mapping, Optional, Sequence, Sized, TypeVar, Union, cast
 
 import numpy
 
@@ -11,14 +11,12 @@ from .meta import ChainMeta, RunMeta, Variable
 from .npproto.utils import ndarray_to_numpy
 from .utils import as_array_from_ragged
 
-InferenceData = TypeVar("InferenceData")
 try:
-    from arviz import from_dict
+    from arviz import InferenceData, from_dict
 
-    if not TYPE_CHECKING:
-        from arviz import InferenceData
     _HAS_ARVIZ = True
 except ModuleNotFoundError:
+    InferenceData = TypeVar("InferenceData")  # type: ignore
     _HAS_ARVIZ = False
 
 Shape = Sequence[int]
@@ -34,12 +32,12 @@ def is_rigid(nshape: Optional[Shape]):
         This "nullable shape" is interpreted as follows:
         - ``[]`` indicates scalar shape (rigid: True).
         - ``[2, 3]`` indicates a matrix with 2 rows and 3 columns (rigid: True).
-        - ``[2, 0]`` indicates a matrix with 2 rows and dynamic number of columns (rigid: False).
+        - ``[2, -1]`` indicates a matrix with 2 rows and dynamic number of columns (rigid: False).
         - ``None`` indicates dynamic dimensionality (rigid: False).
     """
     if nshape is None:
         return False
-    if any(s == 0 for s in nshape):
+    if any(s == -1 for s in nshape):
         return False
     return True
 
@@ -58,7 +56,7 @@ class Chain(Sized):
         super().__init__()
 
     def append(
-        self, draw: Dict[str, numpy.ndarray], stats: Optional[Dict[str, numpy.ndarray]] = None
+        self, draw: Mapping[str, numpy.ndarray], stats: Optional[Mapping[str, numpy.ndarray]] = None
     ):
         """Appends an iteration to the chain.
 
@@ -253,20 +251,22 @@ class Run:
                 warmup_sample_stats[svar.name].append(stats[tune])
                 sample_stats[svar.name].append(stats[~tune])
 
+        w_pst = cast(Dict[str, Union[Sequence, numpy.ndarray]], warmup_posterior)
+        w_ss = cast(Dict[str, Union[Sequence, numpy.ndarray]], warmup_sample_stats)
+        pst = cast(Dict[str, Union[Sequence, numpy.ndarray]], posterior)
+        ss = cast(Dict[str, Union[Sequence, numpy.ndarray]], sample_stats)
         if not equalize_chain_lengths:
             # Convert ragged arrays to object-dtyped ndarray because NumPy >=1.24.0 no longer does that automatically
-            warmup_posterior = {k: as_array_from_ragged(v) for k, v in warmup_posterior.items()}
-            warmup_sample_stats = {
-                k: as_array_from_ragged(v) for k, v in warmup_sample_stats.items()
-            }
-            posterior = {k: as_array_from_ragged(v) for k, v in posterior.items()}
-            sample_stats = {k: as_array_from_ragged(v) for k, v in sample_stats.items()}
+            w_pst = {k: as_array_from_ragged(v) for k, v in warmup_posterior.items()}
+            w_ss = {k: as_array_from_ragged(v) for k, v in warmup_sample_stats.items()}
+            pst = {k: as_array_from_ragged(v) for k, v in posterior.items()}
+            ss = {k: as_array_from_ragged(v) for k, v in sample_stats.items()}
 
         idata = from_dict(
-            warmup_posterior=warmup_posterior,
-            warmup_sample_stats=warmup_sample_stats,
-            posterior=posterior,
-            sample_stats=sample_stats,
+            warmup_posterior=w_pst,
+            warmup_sample_stats=w_ss,
+            posterior=pst,
+            sample_stats=ss,
             coords=self.coords,
             dims=self.dims,
             attrs=self.meta.attributes,

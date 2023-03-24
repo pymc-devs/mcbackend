@@ -25,7 +25,7 @@ message Variable {
     // The default value, an empty sequence, corresponds to scalar shape.
     // Note that for variables of dynamic dimensionality, ``undefined_ndim=True``
     // can be set to render ``shape`` and ``dims`` meaningless.
-    repeated uint64 shape = 3;
+    repeated int64 shape = 3;
     // Names of the variable's dimensions.
     // The default value, an empty sequence, corresponds to undefined dimension names
     // and applies to scalar variables, and variables where ``undefined_ndim=True``.
