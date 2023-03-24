@@ -2,7 +2,7 @@ import numpy
 import numpy as np
 
 import hopsy
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Union
 import hagelkorn
 
 from mcbackend.meta import Coordinate, DataVariable, Variable
@@ -26,16 +26,17 @@ class TraceBackend(hopsy.Backend):
 
         # Sessions created from the underlying backend
         self._run: Optional[Run] = None
-        self._chain: Optional[Chain] = None
+        self._chains: Optional[List[Chain]] = None
 
     def setup(
             self,
-            chain_idx: int,
+            n_chains: int,
             n_samples: int,
             n_dim: int,
-            meta_names: List[str] = None
+            meta_names: List[str],
+            meta_shapes: List[List[int]],
     ) -> None:
-        super().setup(chain_idx, n_samples, n_dim)
+        super().setup(n_chains, n_samples, n_dim, meta_names, meta_shapes)
 
         # Initialize backend sessions
         self.var_names = ["variable_{}".format(i) for i in range(n_dim)]
@@ -43,7 +44,7 @@ class TraceBackend(hopsy.Backend):
             variables = [
                 Variable(
                     name,
-                    np.dtype(np.float).name,
+                    np.dtype(float).name,
                     [],
                     [],
                     is_deterministic=False,
@@ -53,18 +54,9 @@ class TraceBackend(hopsy.Backend):
 
             sample_stats = []
             if meta_names is not None:
-                # In PyMC the sampler stats are grouped by the sampler.
-                # ⚠ PyMC currently does not inform backends about shapes/dims of sampler stats.
-                for name in meta_names:
-                    sample_stats.append(
-                        Variable(
-                            name=name,
-                            dtype=np.dtype(numpy.float).name if name == "acceptance_rate" else np.dtype(numpy.ndarray).name,
-                            # This 👇 is needed until PyMC provides shapes ahead of time.
-                            # undefined_ndim=True,
-                            undefined_ndim=True,
-                        )
-                    )
+                for i in range(len(meta_names)):
+                    sample_stats.append(Variable(name=meta_names[i], dtype=np.dtype(float).name, shape=meta_shapes[i]))
+
 
             run_meta = RunMeta(
                 self.run_id,
@@ -72,14 +64,13 @@ class TraceBackend(hopsy.Backend):
                 sample_stats=sample_stats,
             )
             self._run = self._backend.init_run(run_meta)
-        self._chain = self._run.init_chain(chain_number=chain_idx)
-        return
+        self._chains = [self._run.init_chain(chain_number=i) for i in range(n_chains)]
 
-    def record(self, point, meta):
-        draw = dict(zip(self.var_names, np.tolist(point)))
+    def record(self, chain_idx: int, state: np.ndarray, meta: Dict[str, Union[float, np.ndarray]]) -> None:
+        draw = dict(zip(self.var_names, state.tolist()))
 
-        self._chain.append(draw, meta)
-        return
+        self._chains[chain_idx].append(draw, meta)
+        self._chains[chain_idx]._commit()
 
-    def finish(self):
+    def finish(self) -> None:
         pass
