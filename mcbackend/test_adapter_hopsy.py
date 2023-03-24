@@ -22,8 +22,8 @@ def test_objects():
     problem = hopsy.Problem(A, b, model)
 
     n_chains = 4
-    chains = [hopsy.MarkovChain(hopsy.GaussianProposal, problem, starting_point=[0, 0, 0])
-              for i in range(n_chains)]
+    chains = [hopsy.MarkovChain(problem, hopsy.GaussianProposal, starting_point=[0, 0, 0])
+              for _ in range(n_chains)]
     for chain in chains:
         chain.proposal.stepsize = 0.2
 
@@ -77,4 +77,4 @@ class TestHopsyAdapter:
         rmeta = args[0]
 
         assert numpy.all([var.name == "variable_{}".format(i) for i, var in enumerate(rmeta.variables)])
-        assert numpy.all([var.name == record_meta[i].format(i) for i, var in enumerate(rmeta.sampler_stats)])
+        assert numpy.all([var.name == record_meta[i] for i, var in enumerate(rmeta.sample_stats)])
