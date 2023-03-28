@@ -41,7 +41,7 @@ isinstance(backend, mcbackend.Backend)
 ```
 
 ### Part 3: PPL adapters
-Anything that is a `Backend` can be wrapped by an [adapter ](https://en.wikipedia.org/wiki/Adapter_pattern) that makes it compatible with your favorite PPL.
+Anything that is a `Backend` can be wrapped by an [adapter](https://en.wikipedia.org/wiki/Adapter_pattern) that makes it compatible with your favorite PPL.
 
 In the example below, a `ClickHouseBackend` is initialized to store MCMC draws from a PyMC model in a [ClickHouse](http://clickhouse.com/) database.
 See below for [how to run it in Docker](#development).
@@ -56,16 +56,14 @@ ch_client = clickhouse_driver.Client("localhost")
 backend = mcbackend.ClickHouseBackend(ch_client)
 
 with pm.Model():
-    # 3. Create your model
+    # 2. Create your model
     ...
-    # 4. Wrap the PyMC adapter around an `mcbackend.Backend`
-    #    This generates and prints a short `trace.run_id` by which
-    #    this MCMC run is identified in the (database) backend.
-    trace = mcbackend.pymc.TraceBackend(backend)
-
-    # 5. Hit the inference button ™
-    pm.sample(trace=trace)
+    # 3. Hit the inference button ™ while passing the backend!
+    pm.sample(trace=backend)
 ```
+
+In case of PyMC the adapter lives in the PyMC codebase [since version 5.1.1](https://github.com/pymc-devs/pymc/releases/tag/v5.1.1),
+so all you need to do is pass any `mcbackend.Backend` via the `pm.sample(trace=...)` parameter!
 
 Instead of using PyMC's built-in NumPy backend, the MCMC draws now end up in ClickHouse.
 
@@ -103,7 +101,6 @@ For example:
 * Schema discussion: Which metadata is needed? (related: [PyMC #5160](https://github.com/pymc-devs/pymc/issues/5160))
 * Interface discussion: How should `Backend`/`Run`/`Chain` evolve?
 * Python Backends for disk storage (HDF5, `*.proto`, ...)
-* An `emcee` adapter (#11).
 * C++ `Backend`/`Run`/`Chain` interfaces
 * C++ ClickHouse backend (via [`clickhouse-cpp`](https://github.com/ClickHouse/clickhouse-cpp))
 
