@@ -12,5 +12,5 @@ jobs:
       SKIP: no-commit-to-branch
     steps:
     - uses: actions/checkout@v3
-    - uses: actions/setup-python@v4.6.0
+    - uses: actions/setup-python@v4.6.1
     - uses: pre-commit/action@v3.0.0
