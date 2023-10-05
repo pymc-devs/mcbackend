@@ -1,0 +1,36 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: McBackend
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Michael
+    family-names: Osthege
+    email: michael.osthege@outlook.com
+    orcid: 'https://orcid.org/0000-0002-2734-7624'
+    affiliation: Forschungszentrum Jülich GmbH
+  - name: PyMC Developers
+    website: 'https://www.pymc.io/'
+repository-code: 'https://github.com/pymc-devs/mcbackend'
+abstract: >-
+  McBackend is an abstraction of backends for storing MCMC
+  draws. It encodes MCMC run metadata using protocol
+  bufferes, and comes with various backend implementation
+  such as an in-memory backend, or one for streaming MCMC
+  draws to a ClickHouse database. The backends store not
+  only MCMC draws but also sampler statistics, and are
+  compatible with sparse data, or varying dimensionality.
+  MCMC chains stored with McBackend can be queried directly,
+  or convert to the popular ArviZ InferenceData objects.
+keywords:
+  - mcmc
+  - arviz
+  - pymc
+license: AGPL-3.0
+commit: 5dca137855e650848920cbfc8cd095d15a5378a9
+version: 0.5.0
+date-released: '2023-03-30'
