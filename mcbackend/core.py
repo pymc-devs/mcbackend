@@ -238,7 +238,7 @@ class Run:
                     _log.warning(
                         "No 'tune' stat found. Assuming all iterations are posterior draws."
                     )
-                tune = numpy.repeat((chain_lengths[chain.cid],), False)
+                tune = numpy.full((chain_lengths[chain.cid],), False)
 
             # Split all variables draws into warmup/posterior
             for var in variables:
