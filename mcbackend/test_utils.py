@@ -277,11 +277,12 @@ class CheckBehavior(BaseBackendTest):
             assert len(chain) == 1
         pass
 
-    def test__to_inferencedata(self):
+    @pytest.mark.parametrize("tstatname", ["tune", "sampler__tune", "nottune"])
+    def test__to_inferencedata(self, tstatname, caplog):
         rmeta = make_runmeta(
             flexibility=False,
             sample_stats=[
-                Variable("tune", "bool"),
+                Variable(tstatname, "bool"),
                 Variable("sampler_0__logp", "float32"),
                 Variable("warning", "str"),
             ],
@@ -294,15 +295,22 @@ class CheckBehavior(BaseBackendTest):
         draws = [make_draw(rmeta.variables) for _ in range(n)]
         stats = [make_draw(rmeta.sample_stats) for _ in range(n)]
         for i, (d, s) in enumerate(zip(draws, stats)):
-            s["tune"] = i < 4
+            s[tstatname] = i < 4
             chain.append(d, s)
 
         idata = run.to_inferencedata()
         assert isinstance(idata, arviz.InferenceData)
         assert idata.warmup_posterior.dims["chain"] == 1
-        assert idata.warmup_posterior.dims["draw"] == 4
         assert idata.posterior.dims["chain"] == 1
-        assert idata.posterior.dims["draw"] == 6
+        if tstatname == "nottune":
+            # Splitting into warmup/posterior requires a tune stat!
+            assert any("No 'tune' stat" in r.message for r in caplog.records)
+            assert idata.warmup_posterior.dims["draw"] == 0
+            assert idata.posterior.dims["draw"] == 10
+        else:
+            assert idata.warmup_posterior.dims["draw"] == 4
+            assert idata.posterior.dims["draw"] == 6
+
         for var in rmeta.variables:
             assert var.name in set(idata.posterior.keys())
         for svar in rmeta.sample_stats:
