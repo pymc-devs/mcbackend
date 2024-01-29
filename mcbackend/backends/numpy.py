@@ -1,6 +1,7 @@
 """
 This backend holds draws in memory, managing them via NumPy arrays.
 """
+
 import math
 from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 

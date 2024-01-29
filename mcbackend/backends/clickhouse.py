@@ -1,6 +1,7 @@
 """
 This module implements a backend for sample storage in ClickHouse.
 """
+
 import base64
 import logging
 import time
