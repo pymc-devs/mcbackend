@@ -1,6 +1,7 @@
 """
 This module implements a backend for sample storage in ClickHouse.
 """
+
 import base64
 import logging
 import time
@@ -45,6 +46,10 @@ CLICKHOUSE_DTYPES = {
 }
 
 
+class ClickHouseBackendError(Exception):
+    """Something bad happened in the ClickHouse backend."""
+
+
 def create_runs_table(client: clickhouse_driver.Client):
     query = """
         CREATE TABLE IF NOT EXISTS runs (
@@ -79,7 +84,7 @@ def create_chain_table(client: clickhouse_driver.Client, meta: ChainMeta, rmeta:
     # Check that it does not already exist
     cid = chain_id(meta)
     if client.execute(f"SHOW TABLES LIKE '{cid}';"):
-        raise Exception(f"A table for {cid} already exists.")
+        raise ClickHouseBackendError(f"A table for {cid} already exists.")
 
     # Create a table with columns corresponding to the model variables
     columns = []
@@ -235,7 +240,7 @@ class ClickHouseChain(Chain):
         query = f"SELECT (`{names}`,) FROM {self.cid} WHERE _draw_idx={idx};"
         data = self._client.execute(query)
         if not data:
-            raise Exception(f"No record found for draw index {idx}.")
+            raise ClickHouseBackendError(f"No record found for draw index {idx}.")
         result = dict(zip(var_names, data[0][0]))
         return result
 
@@ -363,7 +368,10 @@ class ClickHouseBackend(Backend):
             raise ValueError("Either a `client` or a `client_fn` must be provided.")
 
         if client_fn is None:
-            client_fn = lambda: client
+
+            def client_fn():
+                return client
+
         if client is None:
             client = client_fn()
 
@@ -381,11 +389,11 @@ class ClickHouseBackend(Backend):
         else:
             created_at = datetime.now().astimezone(timezone.utc)
             query = "INSERT INTO runs (created_at, rid, proto) VALUES"
-            params = dict(
-                created_at=created_at,
-                rid=meta.rid,
-                proto=base64.encodebytes(bytes(meta)).decode("ascii"),
-            )
+            params = {
+                "created_at": created_at,
+                "rid": meta.rid,
+                "proto": base64.encodebytes(bytes(meta)).decode("ascii"),
+            }
             self._client.execute(query, [params])
         return ClickHouseRun(meta, client_fn=self._client_fn, created_at=created_at)
 
@@ -407,7 +415,9 @@ class ClickHouseBackend(Backend):
             {"rid": rid},
         )
         if len(rows) != 1:
-            raise Exception(f"Unexpected number of {len(rows)} results for rid='{rid}'.")
+            raise ClickHouseBackendError(
+                f"Unexpected number of {len(rows)} results for rid='{rid}'."
+            )
         data = base64.decodebytes(rows[0][2].encode("ascii"))
         meta = RunMeta().parse(data)
         return ClickHouseRun(

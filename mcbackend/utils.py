@@ -1,4 +1,5 @@
 """Contains helper functions that are independent of McBackend components."""
+
 from typing import Sequence
 
 import numpy as np

@@ -1,6 +1,7 @@
 """
 Helper functions such as converters between ``ndarray`` and ``Ndarray``.
 """
+
 import numpy
 
 from . import Ndarray

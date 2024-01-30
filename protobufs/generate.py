@@ -2,6 +2,7 @@
 This script regenerates the `meta.py` module
 from protobuf definitions of core metadata structures.
 """
+
 import pathlib
 import shutil
 import subprocess
