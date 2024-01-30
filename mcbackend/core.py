@@ -27,6 +27,10 @@ _log = logging.getLogger(__file__)
 __all__ = ("is_rigid", "chain_id", "Chain", "Run", "Backend")
 
 
+class ChainError(Exception):
+    """Something is not right in one chain."""
+
+
 def is_rigid(nshape: Optional[Shape]):
     """Determines wheather the shape is constant.
 
@@ -119,7 +123,7 @@ class Chain(Sized):
         ]:
             for var in items:
                 return len(method(var.name))
-        raise Exception("This chain has no variables or sample stats.")
+        raise ChainError("This chain has no variables or sample stats.")
 
     @property
     def cid(self) -> str:

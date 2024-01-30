@@ -111,7 +111,7 @@ class NumPyRun(Run):
     """An MCMC run where samples are kept in memory."""
 
     def __init__(self, meta: RunMeta, *, preallocate: int) -> None:
-        self._settings = dict(preallocate=preallocate)
+        self._settings = {"preallocate": preallocate}
         self._chains: List[NumPyChain] = []
         super().__init__(meta)
 
@@ -129,9 +129,7 @@ class NumPyBackend(Backend):
     """An in-memory backend using NumPy."""
 
     def __init__(self, preallocate: int = 1_000) -> None:
-        self._settings = dict(
-            preallocate=preallocate,
-        )
+        self._settings = {"preallocate": preallocate}
         super().__init__()
 
     def init_run(self, meta: RunMeta) -> NumPyRun:
