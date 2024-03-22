@@ -23,7 +23,7 @@ def grow_append(
         length = len(target)
         if length == draw_idx:
             # Grow the array by 10 %
-            ngrow = math.ceil(0.1 * length)
+            ngrow = max(10, math.ceil(0.1 * length))
             if rigid[vn]:
                 extension = numpy.empty((ngrow,) + numpy.shape(v))
             else:
@@ -72,7 +72,7 @@ class NumPyChain(Chain):
                     reserve = (preallocate, *var.shape)
                     target_dict[var.name] = numpy.empty(reserve, var.dtype)
                 else:
-                    target_dict[var.name] = numpy.array([None] * preallocate)
+                    target_dict[var.name] = numpy.array([None] * preallocate, dtype=object)
 
         super().__init__(cmeta, rmeta)
 
