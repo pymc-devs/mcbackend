@@ -52,7 +52,7 @@ class NumPyChain(Chain):
             and grow the allocated memory by 10 % when needed.
             Exceptions are variables with non-rigid shapes (indicated by 0 in the shape tuple)
             where the correct amount of memory cannot be pre-allocated.
-            In these cases, and when ``preallocate == 0`` object arrays are used.
+            In these cases object arrays are used.
         """
         self._var_is_rigid: Dict[str, bool] = {}
         self._samples: Dict[str, numpy.ndarray] = {}
@@ -68,7 +68,7 @@ class NumPyChain(Chain):
             for var in variables:
                 rigid = is_rigid(var.shape) and not var.undefined_ndim and var.dtype != "str"
                 rigid_dict[var.name] = rigid
-                if preallocate > 0 and rigid:
+                if rigid:
                     reserve = (preallocate, *var.shape)
                     target_dict[var.name] = numpy.empty(reserve, var.dtype)
                 else:
