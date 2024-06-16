@@ -2,6 +2,7 @@ import random
 
 import hagelkorn
 import numpy
+import pytest
 
 from mcbackend.backends.numpy import NumPyBackend, NumPyChain, NumPyRun
 from mcbackend.core import RunMeta
@@ -43,8 +44,9 @@ class TestNumPyBackend(CheckBehavior, CheckPerformance):
         assert chain._samples["changeling"].dtype == object
         pass
 
-    def test_growing(self):
-        imb = NumPyBackend(preallocate=15)
+    @pytest.mark.parametrize("preallocate", [0, 75])
+    def test_growing(self, preallocate):
+        imb = NumPyBackend(preallocate=preallocate)
         rm = RunMeta(
             rid=hagelkorn.random(),
             variables=[
@@ -62,19 +64,27 @@ class TestNumPyBackend(CheckBehavior, CheckPerformance):
         )
         run = imb.init_run(rm)
         chain = run.init_chain(0)
-        assert chain._samples["A"].shape == (15, 2)
-        assert chain._samples["B"].shape == (15,)
-        for _ in range(22):
+        assert chain._samples["A"].shape == (preallocate, 2)
+        assert chain._samples["B"].shape == (preallocate,)
+        for _ in range(130):
             draw = {
                 "A": numpy.random.uniform(size=(2,)),
                 "B": numpy.random.uniform(size=(random.randint(0, 10),)),
             }
             chain.append(draw)
-        # Growth: 15 → 17 → 19 → 21 → 24
-        assert chain._samples["A"].shape == (24, 2)
-        assert chain._samples["B"].shape == (24,)
-        assert chain.get_draws("A").shape == (22, 2)
-        assert chain.get_draws("B").shape == (22,)
+        # NB: Growth algorithm adds max(10, ceil(0.1*length))
+        if preallocate == 75:
+            # 75 → 85 → 95 → 105 → 116 → 128 → 141
+            assert chain._samples["A"].shape == (141, 2)
+            assert chain._samples["B"].shape == (141,)
+        elif preallocate == 0:
+            # 10 → 20 → ... → 90 → 100 → 110 → 121 → 134
+            assert chain._samples["A"].shape == (134, 2)
+            assert chain._samples["B"].shape == (134,)
+        else:
+            assert False, f"Missing test for {preallocate=}"
+        assert chain.get_draws("A").shape == (130, 2)
+        assert chain.get_draws("B").shape == (130,)
         pass
 
 
