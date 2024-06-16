@@ -1,6 +1,10 @@
 """
-This backend holds draws in memory, managing them via NumPy arrays.
+This backend simply discards draws. There are not stored in memory.
+This can be used in situations where we want to run an MCMC but not permanently
+store its output.
 """
+
+# Code-wise, a NullChain is essentially just a NumpyChain without the underlying data array.
 
 from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
@@ -12,19 +16,26 @@ from ..meta import ChainMeta, RunMeta
 from .numpy import grow_append
 
 class NullChain(Chain):
-    """Stores value draws in NumPy arrays and can pre-allocate memory."""
+    """A null storage: discards values immediately and allocates no memory.
 
-    def __init__(self, cmeta: ChainMeta, rmeta: RunMeta, *, preallocate: int=0) -> None:
+    Use cases are
+
+    - Online computations: Draws are used and discarded immediately, allowing for much larger sample spaces.
+    - Profiling: To use as a baseline, to measure compute time & memory before allocating memory for draws.
+      Comparing with another backend would then show how much overhead it adds.
+
+    Since draws are not stored, only a subset of the `Chain` interface is supported:
+
+    - Supported: `__len__`, `append`, `get_stats`, `get_stats_at`
+    - Not supported: `get_draws`, `get_draws_at`
+
+    .. Todo:: Option to also sampling stats?
+    .. Todo:: Allow retrieving the most recent draw?
+
+    """
+
+    def __init__(self, cmeta: ChainMeta, rmeta: RunMeta, *, preallocate: int) -> None:
         """Creates a null storage for draws from a chain: will gobble outputs without storing them
-
-        Use cases are
-
-        - Online computations: Draws are used and discarded immediately, allowing for much larger sample spaces.
-        - Profiling: To use as a baseline, to measure compute time & memory before allocating memory for draws.
-          Comparing with another backend would then show how much overhead it adds.
-
-        .. Todo:: Allow to optionally store sampling stats.
-        .. Todo:: Allow to retrieve the most recent draw?
 
         Parameters
         ----------
