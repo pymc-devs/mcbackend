@@ -10,10 +10,10 @@ from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
 import numpy
 
-from ..core import Backend, Chain, Run, is_rigid
+from ..core import Backend, Chain, Run
 from ..meta import ChainMeta, RunMeta
+from .numpy import grow_append, prepare_storage
 
-from .numpy import grow_append
 
 class NullChain(Chain):
     """A null storage: discards values immediately and allocates no memory.
@@ -52,26 +52,14 @@ class NullChain(Chain):
             where the correct amount of memory cannot be pre-allocated.
             In these cases object arrays are used.
         """
-        self._stat_is_rigid: Dict[str, bool] = {}
-        self._stats: Dict[str, numpy.ndarray] = {}
         self._draw_idx = 0
 
-        # Create storage ndarrays for each model variable and sampler stat.
-        for target_dict, rigid_dict, variables in [
-            (self._stats, self._stat_is_rigid, rmeta.sample_stats),
-        ]:
-            for var in variables:
-                rigid = is_rigid(var.shape) and not var.undefined_ndim and var.dtype != "str"
-                rigid_dict[var.name] = rigid
-                if rigid:
-                    reserve = (preallocate, *var.shape)
-                    target_dict[var.name] = numpy.empty(reserve, var.dtype)
-                else:
-                    target_dict[var.name] = numpy.array([None] * preallocate, dtype=object)
+        # Create storage ndarrays only for sampler stats.
+        self._stats, self._stat_is_rigid = prepare_storage(rmeta.sample_stats, preallocate)
 
         super().__init__(cmeta, rmeta)
 
-    def append(
+    def append(  # pylint: disable=duplicate-code
         self, draw: Mapping[str, numpy.ndarray], stats: Optional[Mapping[str, numpy.ndarray]] = None
     ):
         if stats:
@@ -88,7 +76,9 @@ class NullChain(Chain):
     def get_draws_at(self, idx: int, var_names: Sequence[str]) -> Dict[str, numpy.ndarray]:
         raise RuntimeError("NullChain does not save draws.")
 
-    def get_stats(self, stat_name: str, slc: slice = slice(None)) -> numpy.ndarray:
+    def get_stats(  # pylint: disable=duplicate-code
+        self, stat_name: str, slc: slice = slice(None)
+    ) -> numpy.ndarray:
         data = self._stats[stat_name][: self._draw_idx][slc]
         if self.sample_stats[stat_name].dtype == "str":
             return numpy.array(data.tolist(), dtype=str)

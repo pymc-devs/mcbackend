@@ -7,7 +7,13 @@ import pytest
 from mcbackend.backends.null import NullBackend, NullChain, NullRun
 from mcbackend.core import RunMeta, is_rigid
 from mcbackend.meta import Variable
-from mcbackend.test_utils import CheckBehavior, CheckPerformance, make_runmeta, make_draw
+from mcbackend.test_utils import (
+    CheckBehavior,
+    CheckPerformance,
+    make_draw,
+    make_runmeta,
+)
+
 
 class CheckNullBehavior(CheckBehavior):
     """
@@ -152,6 +158,7 @@ class CheckNullBehavior(CheckBehavior):
         """
         pass
 
+
 class TestNullBackend(CheckNullBehavior, CheckPerformance):
     cls_backend = NullBackend
     cls_run = NullRun
@@ -206,6 +213,7 @@ class TestNullBackend(CheckNullBehavior, CheckPerformance):
             chain.append(draw)
         # TODO: Check dimensions of stats array ?
         pass
+
 
 if __name__ == "__main__":
     tc = TestNullBackend()

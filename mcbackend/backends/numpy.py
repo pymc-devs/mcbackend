@@ -3,12 +3,12 @@ This backend holds draws in memory, managing them via NumPy arrays.
 """
 
 import math
-from typing import Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 import numpy
 
 from ..core import Backend, Chain, Run, is_rigid
-from ..meta import ChainMeta, RunMeta
+from ..meta import ChainMeta, RunMeta, Variable
 
 
 def grow_append(
@@ -34,6 +34,22 @@ def grow_append(
     return
 
 
+def prepare_storage(
+    variables: Iterable[Variable], preallocate: int
+) -> Tuple[Dict[str, numpy.ndarray], Dict[str, bool]]:
+    storage: Dict[str, numpy.ndarray] = {}
+    rigid_dict: Dict[str, bool] = {}
+    for var in variables:
+        rigid = is_rigid(var.shape) and not var.undefined_ndim and var.dtype != "str"
+        rigid_dict[var.name] = rigid
+        if rigid:
+            reserve = (preallocate, *var.shape)
+            storage[var.name] = numpy.empty(reserve, var.dtype)
+        else:
+            storage[var.name] = numpy.array([None] * preallocate, dtype=object)
+    return storage, rigid_dict
+
+
 class NumPyChain(Chain):
     """Stores value draws in NumPy arrays and can pre-allocate memory."""
 
@@ -54,25 +70,11 @@ class NumPyChain(Chain):
             where the correct amount of memory cannot be pre-allocated.
             In these cases object arrays are used.
         """
-        self._var_is_rigid: Dict[str, bool] = {}
-        self._samples: Dict[str, numpy.ndarray] = {}
-        self._stat_is_rigid: Dict[str, bool] = {}
-        self._stats: Dict[str, numpy.ndarray] = {}
         self._draw_idx = 0
 
         # Create storage ndarrays for each model variable and sampler stat.
-        for target_dict, rigid_dict, variables in [
-            (self._samples, self._var_is_rigid, rmeta.variables),
-            (self._stats, self._stat_is_rigid, rmeta.sample_stats),
-        ]:
-            for var in variables:
-                rigid = is_rigid(var.shape) and not var.undefined_ndim and var.dtype != "str"
-                rigid_dict[var.name] = rigid
-                if rigid:
-                    reserve = (preallocate, *var.shape)
-                    target_dict[var.name] = numpy.empty(reserve, var.dtype)
-                else:
-                    target_dict[var.name] = numpy.array([None] * preallocate, dtype=object)
+        self._samples, self._var_is_rigid = prepare_storage(rmeta.variables, preallocate)
+        self._stats, self._stat_is_rigid = prepare_storage(rmeta.sample_stats, preallocate)
 
         super().__init__(cmeta, rmeta)
 
