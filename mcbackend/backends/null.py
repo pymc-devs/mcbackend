@@ -50,7 +50,7 @@ class NullChain(Chain):
             and grow the allocated memory by 10 % when needed.
             Exceptions are variables with non-rigid shapes (indicated by 0 in the shape tuple)
             where the correct amount of memory cannot be pre-allocated.
-            In these cases, and when ``preallocate == 0`` object arrays are used.
+            In these cases object arrays are used.
         """
         self._stat_is_rigid: Dict[str, bool] = {}
         self._stats: Dict[str, numpy.ndarray] = {}
@@ -63,7 +63,7 @@ class NullChain(Chain):
             for var in variables:
                 rigid = is_rigid(var.shape) and not var.undefined_ndim and var.dtype != "str"
                 rigid_dict[var.name] = rigid
-                if preallocate > 0 and rigid:
+                if rigid:
                     reserve = (preallocate, *var.shape)
                     target_dict[var.name] = numpy.empty(reserve, var.dtype)
                 else:
@@ -101,7 +101,7 @@ class NullChain(Chain):
 class NullRun(Run):
     """An MCMC run where samples are immediately discarded."""
 
-    def __init__(self, meta: RunMeta, *, preallocate: int=0) -> None:
+    def __init__(self, meta: RunMeta, *, preallocate: int) -> None:
         self._settings = {"preallocate": preallocate}
         self._chains: List[NullChain] = []
         super().__init__(meta)
@@ -119,7 +119,7 @@ class NullRun(Run):
 class NullBackend(Backend):
     """A backend which discards samples immediately."""
 
-    def __init__(self, preallocate: int=0) -> None:
+    def __init__(self, preallocate: int = 1_000) -> None:
         self._settings = {"preallocate": preallocate}
         super().__init__()
 
