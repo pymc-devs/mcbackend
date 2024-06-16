@@ -72,7 +72,7 @@ class TestNumPyBackend(CheckBehavior, CheckPerformance):
                 "B": numpy.random.uniform(size=(random.randint(0, 10),)),
             }
             chain.append(draw)
-        # NB: Growth algorithm adds max(10, ceil(0.1*length)) 
+        # NB: Growth algorithm adds max(10, ceil(0.1*length))
         if preallocate == 75:
             # 75 → 85 → 95 → 105 → 116 → 128 → 141
             assert chain._samples["A"].shape == (141, 2)
