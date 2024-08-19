@@ -1,4 +1,4 @@
-betterproto==2.0.0b6
+betterproto==2.0.0b7
 hagelkorn
 numpy
 pandas
