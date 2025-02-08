@@ -4,7 +4,8 @@ Module with metadata structures and abstract classes.
 
 import collections
 import logging
-from typing import Dict, List, Mapping, Optional, Sequence, Sized, TypeVar, Union, cast
+from collections.abc import Sized
+from typing import Dict, List, Mapping, Optional, Sequence, TypeVar, Union, cast
 
 import numpy
 
