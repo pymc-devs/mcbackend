@@ -109,31 +109,15 @@ As the schema and API stabilizes a mid-term goal might be to replace PyMC `BaseT
 Getting rid of `MultiTrace` was a [long-term goal](https://github.com/pymc-devs/pymc/issues/4372#issuecomment-770100410) behind making `pm.sample(return_inferencedata=True)` the default.
 
 ## Development
-First clone the repository and install `mcbackend` locally:
+
+First clone the repository and set up a development environment containing the protobuf compiler.
 
 ```bash
-pip install -e .
-```
-
-To run the tests:
-
-```bash
+mamba create -n mcb python=3.11 grpcio-tools protobuf -y
+activate mcb
 pip install -r requirements-dev.txt
-pytest -v
-```
-
-Some tests need a ClickHouse database server running locally.
-To start one in Docker:
-
-```bash
-docker run --detach --rm --name mcbackend-db -p 9000:9000 --ulimit nofile=262144:262144 clickhouse/clickhouse-server
-```
-
-### Compiling the ProtocolBuffers
-If you don't already have it, first install the protobuf compiler:
-```bash
-conda install protobuf
 pip install --pre "betterproto[compiler]"
+pip install -e .
 ```
 
 To compile the `*.proto` files for languages other than Python, check the [ProtocolBuffers documentation](https://developers.google.com/protocol-buffers/docs/tutorials).
@@ -143,4 +127,18 @@ It also copies the generated files to the right place in `mcbackend`.
 
 ```bash
 python protobufs/generate.py
+pre-commit run --all
+```
+
+To run the tests:
+
+```bash
+pytest -v
+```
+
+Some tests need a ClickHouse database server running locally.
+To start one in Docker:
+
+```bash
+docker run --detach --rm --name mcbackend-db -p 9000:9000 --ulimit nofile=262144:262144 clickhouse/clickhouse-server
 ```
