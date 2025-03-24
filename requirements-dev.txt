@@ -1,6 +1,7 @@
 arviz
 clickhouse-driver
 flake8
+pre-commit
 pytest
 pytest-cov
 twine
