@@ -15,7 +15,7 @@ The `mcbackend` package consists of three parts:
 ### Part 1: A schema for MCMC run & chain metadata
 No matter which programming language your favorite PPL is written in, the [ProtocolBuffers](https://developers.google.com/protocol-buffers/) from McBackend can be used to generate code in languages like C++, C#, Python and many more to represent commonly used metadata about MCMC runs, chains and model variables.
 
-The definitions in [`protobufs/meta.proto`](./protobufs/meta.proto) are designed to maximize compatibility with [`ArviZ`](https://github.com/arviz-devs/arviz) objects, making it easy to transform MCMC draws stored according to the McBackend schema to `InferenceData` objects for plotting & analysis.
+The definitions in [`protobufs/meta.proto`](./protobufs/meta.proto) are designed to maximize compatibility with [`ArviZ`](https://github.com/arviz-devs/arviz) objects, making it easy to transform MCMC draws stored according to the McBackend schema to `xarray.DataTree` objects for plotting & analysis.
 
 ### Part 2: A storage backend interface
 The  `draws` and `stats` created by MCMC sampling algorithms at runtime need to be stored _somewhere_.
@@ -83,10 +83,10 @@ chain = run.get_chains()[0]
 chain.get_draws("my favorite variable")
 # >>> array([ ... ])
 
-# Convert everything to `InferenceData`
+# Convert everything to an inference data structure
 idata = run.to_inferencedata()
 print(idata)
-# >>> Inference data with groups:
+# >>> DataTree:
 # >>> 	> posterior
 # >>> 	> sample_stats
 # >>> 	> observed_data
@@ -113,7 +113,7 @@ Getting rid of `MultiTrace` was a [long-term goal](https://github.com/pymc-devs/
 First clone the repository and set up a development environment containing the protobuf compiler.
 
 ```bash
-mamba create -n mcb python=3.11 grpcio-tools protobuf -y
+mamba create -n mcb python=3.13 grpcio-tools protobuf -y
 activate mcb
 pip install -r requirements-dev.txt
 pip install --pre "betterproto[compiler]"

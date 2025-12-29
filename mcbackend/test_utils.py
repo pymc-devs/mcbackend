@@ -8,6 +8,7 @@ import hagelkorn
 import numpy
 import pandas
 import pytest
+import xarray
 
 import mcbackend
 from mcbackend import utils as mutils
@@ -299,7 +300,10 @@ class CheckBehavior(BaseBackendTest):
             chain.append(d, s)
 
         idata = run.to_inferencedata()
-        assert isinstance(idata, arviz.InferenceData)
+        try:
+            assert isinstance(idata, arviz.InferenceData)
+        except AttributeError:
+            assert isinstance(idata, xarray.DataTree)
         assert idata.warmup_posterior.dims["chain"] == 1
         assert idata.posterior.dims["chain"] == 1
         if tstatname == "nottune":
