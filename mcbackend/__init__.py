@@ -2,6 +2,8 @@
 A framework agnostic implementation for storage of MCMC draws.
 """
 
+import importlib.metadata
+
 from .backends.null import NullBackend
 from .backends.numpy import NumPyBackend
 from .core import Backend, Chain, Run
@@ -14,7 +16,7 @@ try:
 except ModuleNotFoundError:
     pass
 
-__version__ = "0.5.4"
+__version__ = importlib.metadata.version(__package__ or __name__)
 __all__ = [
     "NumPyBackend",
     "NullBackend",
