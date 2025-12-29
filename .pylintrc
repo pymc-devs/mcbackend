@@ -9,4 +9,5 @@ disable =
     R0912, # too many branches
     R0913, # too many arguments
     R0914, # too many local variables
+    R0915, # too many statements
     R1711, # useless return is okay

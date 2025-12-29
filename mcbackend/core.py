@@ -241,6 +241,11 @@ class Run:
                     " and you should expect many ArviZ functions to choke on it."
                     "\nSpecify `to_inferencedata(equalize_chain_lengths=True)` to get regular inference data."
                 )
+                if _ARVIZ_VERSION > 0:
+                    raise NotImplementedError(
+                        "ArviZ 1.0 no longer supports uneven chain lengths."
+                        " See discussion in https://github.com/pymc-devs/mcbackend/pull/128."
+                    )
             else:
                 msg += "\nTruncating to the length of the shortest chain."
             _log.warning(msg)
@@ -288,7 +293,7 @@ class Run:
         w_ss = cast(Dict[str, Union[Sequence, numpy.ndarray]], warmup_sample_stats)
         pst = cast(Dict[str, Union[Sequence, numpy.ndarray]], posterior)
         ss = cast(Dict[str, Union[Sequence, numpy.ndarray]], sample_stats)
-        if not equalize_chain_lengths:
+        if not equalize_chain_lengths or _ARVIZ_VERSION > 0:
             # Convert ragged arrays to object-dtyped ndarray because NumPy >=1.24.0 no longer does that automatically
             w_pst = {k: as_array_from_ragged(v) for k, v in warmup_posterior.items()}
             w_ss = {k: as_array_from_ragged(v) for k, v in warmup_sample_stats.items()}

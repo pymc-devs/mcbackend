@@ -17,7 +17,7 @@ from mcbackend.backends.clickhouse import (
     column_spec_for,
     create_chain_table,
 )
-from mcbackend.core import Run, chain_id
+from mcbackend.core import _ARVIZ_VERSION, Run, chain_id
 from mcbackend.meta import ChainMeta, RunMeta, Variable
 from mcbackend.test_utils import CheckBehavior, CheckPerformance, make_runmeta
 
@@ -377,6 +377,11 @@ class TestClickHouseBackend(CheckBehavior, CheckPerformance):
         assert "Chains vary in length" in caplog.records[0].message
         assert "Truncating to" in caplog.records[0].message
         assert len(idata_even.posterior.draw) == 14
+
+        if _ARVIZ_VERSION > 0:
+            with pytest.raises(NotImplementedError, match="ArviZ 1.0 no longer supports"):
+                run.to_inferencedata(equalize_chain_lengths=False)
+            return
 
         # With equalize=False the "draw" dim has the length of the longest chain (here: 8-3 = 5)
         caplog.clear()
