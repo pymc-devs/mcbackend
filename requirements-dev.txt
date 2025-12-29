@@ -1,4 +1,4 @@
-arviz
+arviz>=1.0.0rc0
 clickhouse-driver
 flake8
 pre-commit

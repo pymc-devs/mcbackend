@@ -13,13 +13,21 @@ from .meta import ChainMeta, RunMeta, Variable
 from .npproto.utils import ndarray_to_numpy
 from .utils import as_array_from_ragged
 
+_ARVIZ_VERSION: int | None
 try:
-    from arviz import InferenceData, from_dict
+    from arviz import from_dict
 
-    _HAS_ARVIZ = True
+    try:
+        from arviz import InferenceData as IData
+
+        _ARVIZ_VERSION = 0
+    except ImportError:
+        from xarray import DataTree as IData
+
+        _ARVIZ_VERSION = 1
 except ModuleNotFoundError:
-    InferenceData = TypeVar("InferenceData")  # type: ignore
-    _HAS_ARVIZ = False
+    IData = TypeVar("IData")  # type: ignore
+    _ARVIZ_VERSION = None
 
 Shape = Sequence[int]
 _log = logging.getLogger(__file__)
@@ -192,8 +200,8 @@ class Run:
     def observed_data(self) -> Dict[str, numpy.ndarray]:
         return {dv.name: ndarray_to_numpy(dv.value) for dv in self.meta.data if dv.is_observed}
 
-    def to_inferencedata(self, *, equalize_chain_lengths: bool = True, **kwargs) -> InferenceData:
-        """Creates an ArviZ ``InferenceData`` object from this run.
+    def to_inferencedata(self, *, equalize_chain_lengths: bool = True, **kwargs) -> IData:
+        """Creates an ArviZ inference data structure from this run.
 
         Parameters
         ----------
@@ -204,10 +212,11 @@ class Run:
 
         Returns
         -------
-        idata : arviz.InferenceData
+        idata
             Samples and metadata of this inference run.
+            ``az.InferenceData`` (ArviZ <1) or ``xarray.DataTree`` (ArviZ >1).
         """
-        if not _HAS_ARVIZ:
+        if _ARVIZ_VERSION is None:
             raise ModuleNotFoundError("ArviZ is not installed.")
 
         variables = self.meta.variables
@@ -216,7 +225,7 @@ class Run:
         nonrigid_vars = {var for var in variables if var.undefined_ndim or not is_rigid(var.shape)}
         if nonrigid_vars:
             raise NotImplementedError(
-                "Creating InferenceData from runs with non-rigid variables is not supported."
+                "Creating inference data from runs with non-rigid variables is not supported."
                 f" The non-rigid variables are: {nonrigid_vars}."
             )
 
@@ -226,11 +235,11 @@ class Run:
             if not equalize_chain_lengths:
                 msg += (
                     "\nArviZ does not properly support uneven chain lengths (see ArviZ issue #2094)."
-                    "\nWe'll try to give you an InferenceData, but best case the chain & draw dimensions"
+                    "\nWe'll try to give you a DataTree, but best case the chain & draw dimensions"
                     " will be messed-up as {'chain': 1, 'draws': n_chains}."
-                    "\nYou won't be able to save this InferenceData to a file"
+                    "\nYou might not be able to save this DataTree to a file"
                     " and you should expect many ArviZ functions to choke on it."
-                    "\nSpecify `to_inferencedata(equalize_chain_lengths=True)` to get regular InferenceData."
+                    "\nSpecify `to_inferencedata(equalize_chain_lengths=True)` to get regular inference data."
                 )
             else:
                 msg += "\nTruncating to the length of the shortest chain."
@@ -286,20 +295,35 @@ class Run:
             pst = {k: as_array_from_ragged(v) for k, v in posterior.items()}
             ss = {k: as_array_from_ragged(v) for k, v in sample_stats.items()}
 
-        idata = from_dict(
-            warmup_posterior=w_pst,
-            warmup_sample_stats=w_ss,
-            posterior=pst,
-            sample_stats=ss,
+        if _ARVIZ_VERSION == 0:
+            return from_dict(
+                warmup_posterior=w_pst,
+                warmup_sample_stats=w_ss,
+                posterior=pst,
+                sample_stats=ss,
+                coords=self.coords,
+                dims=self.dims,
+                attrs=self.meta.attributes,
+                constant_data=self.constant_data,
+                observed_data=self.observed_data,
+                save_warmup=True,
+                **kwargs,
+            )
+        return from_dict(
+            data={
+                "warmup_posterior": w_pst,
+                "warmup_sample_stats": w_ss,
+                "posterior": pst,
+                "sample_stats": ss,
+                "constant_data": self.constant_data,
+                "observed_data": self.observed_data,
+            },
             coords=self.coords,
             dims=self.dims,
             attrs=self.meta.attributes,
-            constant_data=self.constant_data,
-            observed_data=self.observed_data,
             save_warmup=True,
             **kwargs,
         )
-        return idata
 
 
 class Backend:

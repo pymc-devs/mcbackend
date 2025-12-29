@@ -25,7 +25,7 @@ abstract: >-
   only MCMC draws but also sampler statistics, and are
   compatible with sparse data, or varying dimensionality.
   MCMC chains stored with McBackend can be queried directly,
-  or convert to the popular ArviZ InferenceData objects.
+  or convert to the popular ArviZ inference data objects.
 keywords:
   - mcmc
   - arviz
