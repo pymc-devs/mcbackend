@@ -7,7 +7,7 @@ name = "mcbackend"
 version = "0.5.4"
 description = "Framework agnostic backends for MCMC sample storage"
 readme = {file = "README.md", content-type = "text/markdown"}
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 license = "AGPL-3.0-or-later"
 license-files = ["LICENSE"]
 authors = [ { name = "Michael Osthege", email = "michael.osthege@outlook.com" } ]
